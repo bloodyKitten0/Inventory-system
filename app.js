@@ -1,0 +1,54 @@
+const express = require("express");
+const swaggerUi = require("swagger-ui-express");
+const swaggerJsDoc = require("swagger-jsdoc");
+
+const productsRouter = require("./routers/products.js");
+const categoriesRouter = require("./routers/categories.js");
+const customersRouter = require("./routers/customers.js");
+const suppliersRouter = require("./routers/suppliers.js");
+const warehousesRouter = require("./routers/warehouses.js");
+const productsSuppliersRouter = require("./routers/products-suppliers.js");
+const inventoryRouter = require("./routers/inventory.js");
+const ordersItemsRouter = require(`./routers/orders-items.js`);
+const ordersRouter = require(`./routers/orders.js`);
+const stockMovementsRouter = require(`./routers/stock-movements.js`);
+
+const app = express();
+
+app.use(express.json());
+
+const swaggerOptions = {
+  definition: {
+    openapi: "3.0.0",
+    info: {
+      title: "Inventory Management API",
+      version: "1.0.0",
+      description: "API for managing inventory data",
+    },
+    servers: [
+      {
+        url: "http://localhost:3000",
+      },
+    ],
+  },
+  apis: ["./routers/*.js"],
+};
+
+const swaggerSpec = swaggerJsDoc(swaggerOptions);
+
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+app.use("/products", productsRouter);
+app.use("/categories", categoriesRouter);
+app.use("/customers", customersRouter);
+app.use("/suppliers", suppliersRouter);
+app.use("/warehouses", warehousesRouter);
+app.use("/products-suppliers", productsSuppliersRouter);
+app.use("/", inventoryRouter);
+app.use("/", ordersItemsRouter);
+app.use("/", ordersRouter);
+app.use("/", stockMovementsRouter);
+
+app.listen(3000, () => {
+  console.log(`Server is running`);
+});
