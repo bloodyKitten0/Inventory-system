@@ -10,17 +10,17 @@ const read = readAll(`customers`);
 const readOne = readId("customers", "Customer");
 
 const create = test(async (req, res) => {
-  const { customer_email, customer_address } = req.body;
+  const { customer_name, customer_email, shipping_address } = req.body;
 
   const result = await pg.query(
     `
     INSERT INTO customers
-      (customer_email, customer_address, created_at)
+        (customer_name, customer_email, shipping_address, created_at)
     VALUES
-      ($1, $2, now())
+        ($1, $2, $3, now())
     RETURNING *
     `,
-    [customer_email, customer_address],
+    [customer_name, customer_email, shipping_address],
   );
 
   res.status(201).json(result.rows[0]);

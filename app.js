@@ -12,6 +12,7 @@ const inventoryRouter = require("./routers/inventory.js");
 const ordersItemsRouter = require(`./routers/orders-items.js`);
 const ordersRouter = require(`./routers/orders.js`);
 const stockMovementsRouter = require(`./routers/stock-movements.js`);
+const authRouter = require("./routers/auth.js");
 
 const app = express();
 
@@ -48,6 +49,7 @@ app.use("/", inventoryRouter);
 app.use("/", ordersItemsRouter);
 app.use("/", ordersRouter);
 app.use("/", stockMovementsRouter);
+app.use("/auth", authRouter);
 
 app.listen(3000, () => {
   console.log(`Server is running`);

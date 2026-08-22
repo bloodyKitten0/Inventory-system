@@ -357,22 +357,22 @@ Passwords should instead be stored as secure password hashes.
 🔵 Low
 🟢 Minimal
 
-## 1. Authentication 🔴
+## 1. Authentication 🔴 Critical
 
 **Reason**
 To establish the identity of the requester so the system knows who is making the request.
 
-## 2. Authorization 🟠
+## 2. Authorization 🔴 Critical
 
 **Reason**
 To determine what an authenticated user is allowed to access or modify.
 
-## 3. Password Hashing 🟣
+## 3. Password Hashing 🟠 Very High
 
 **Reason**
 To prevent passwords from being directly exposed if the database is compromised.
 
-## 4. Rate Limiting 🟡
+## 4. Rate Limiting 🟣 High
 
 **Reason**
 To prevent attackers from making large numbers of automated requests ,especially repeated login attempts.
