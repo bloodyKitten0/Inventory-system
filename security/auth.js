@@ -1,0 +1,157 @@
+const pg = require("../config/db.js");
+const {
+  generateVerificationToken,
+  hashVerificationToken,
+} = require("../services/verification-token.js");
+const test = require("../services/try-catch.js");
+const sendVerificationEmail = require("../services/email.js");
+
+const register = test(async (req, res) => {
+  const { customer_name, username, email, password, shipping_address } =
+    req.body;
+  if (!customer_name || !username || !email || !password || !shipping_address) {
+    return res.status(400).json({
+      message: "All fields are required",
+    });
+  }
+  const existingAccount = await pg.query(
+    `
+    SELECT account_id
+    FROM accounts
+    WHERE username = $1 OR email = $2
+    `,
+    [username, email],
+  );
+
+  if (existingAccount.rows.length > 0) {
+    return res.status(409).json({
+      message: "Username or email already exists",
+    });
+  }
+  const transaction = await pg.connect();
+
+  try {
+    await transaction.query("BEGIN");
+
+    const Ccustomer = await transaction.query(
+      `
+    INSERT INTO customers
+        (customer_name, customer_email, shipping_address, created_at)
+    VALUES
+        ($1, $2, $3, now())
+    RETURNING id
+    `,
+      [customer_name, email, shipping_address],
+    );
+
+    const account = await transaction.query(
+      `
+        INSERT INTO accounts
+            (customer_id,username,email,password_hash,created_at,updated_at)
+        VALUES 
+            ($1,$2,$3,$4,now(),now())
+        RETURNING account_id`,
+      [Ccustomer.rows[0].id, username, email, password],
+    );
+
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    const rawToken = generateVerificationToken();
+    const hashedToken = hashVerificationToken(rawToken);
+
+    await transaction.query(
+      `
+        INSERT INTO account_verification_tokens
+            (account_id,token_hash,expires_at,created_at)
+        VALUES 
+            ($1,$2,$3,now())
+        `,
+      [account.rows[0].account_id, hashedToken, expiresAt],
+    );
+    await sendVerificationEmail(email, rawToken);
+    await transaction.query("COMMIT");
+    return res.status(201).json({
+      message: "Account created successfully",
+    });
+  } catch (error) {
+    await transaction.query("ROLLBACK");
+    throw error;
+  } finally {
+    transaction.release();
+  }
+});
+
+const verifyAccount = test(async (req, res) => {
+  const token = req.query.token;
+
+  if (!token) {
+    return res.status(400).json({
+      message: "Verification token is required",
+    });
+  }
+
+  const hashedToken = hashVerificationToken(token);
+
+  const checkToken = await pg.query(
+    `
+      SELECT token_id, account_id, expires_at
+      FROM account_verification_tokens
+      WHERE token_hash = $1
+    `,
+    [hashedToken],
+  );
+
+  if (checkToken.rows.length === 0) {
+    return res.status(400).json({
+      message: "Invalid verification token",
+    });
+  }
+
+  const accountId = checkToken.rows[0].account_id;
+  const expiresAt = checkToken.rows[0].expires_at;
+  const tokenId = checkToken.rows[0].token_id;
+
+  if (new Date() >= expiresAt) {
+    return res.status(400).json({
+      message: "Verification token has expired",
+    });
+  }
+
+  const transaction = await pg.connect();
+
+  try {
+    await transaction.query("BEGIN");
+
+    await transaction.query(
+      `
+        UPDATE accounts
+        SET status = 'active'
+        WHERE account_id = $1
+      `,
+      [accountId],
+    );
+
+    await transaction.query(
+      `
+        DELETE FROM account_verification_tokens
+        WHERE token_id = $1
+      `,
+      [tokenId],
+    );
+
+    await transaction.query("COMMIT");
+
+    return res.status(200).json({
+      message: "Account verified successfully",
+    });
+  } catch (error) {
+    await transaction.query("ROLLBACK");
+    throw error;
+  } finally {
+    transaction.release();
+  }
+});
+
+module.exports = {
+  register,
+  verifyAccount,
+};

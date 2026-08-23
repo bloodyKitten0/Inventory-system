@@ -55,9 +55,12 @@ router.get("/:id", customersController.readOne);
  *           schema:
  *             type: object
  *             required:
+ *               - customer_name
  *               - customer_email
  *               - customer_address
  *             properties:
+ *               customer_name:
+ *                 type: string
  *               customer_email:
  *                 type: string
  *                 example: customer@example.com
