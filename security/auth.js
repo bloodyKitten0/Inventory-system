@@ -5,6 +5,9 @@ const {
 } = require("../services/verification-token.js");
 const test = require("../services/try-catch.js");
 const sendVerificationEmail = require("../services/email.js");
+const { hashPassword, verifyPassword } = require(
+  `../services/password-hashing.js`,
+);
 
 const register = test(async (req, res) => {
   const { customer_name, username, email, password, shipping_address } =
@@ -44,6 +47,8 @@ const register = test(async (req, res) => {
       [customer_name, email, shipping_address],
     );
 
+    const passwordHash = await hashPassword(password);
+
     const account = await transaction.query(
       `
         INSERT INTO accounts
@@ -51,7 +56,7 @@ const register = test(async (req, res) => {
         VALUES 
             ($1,$2,$3,$4,now(),now())
         RETURNING account_id`,
-      [Ccustomer.rows[0].id, username, email, password],
+      [Ccustomer.rows[0].id, username, email, passwordHash],
     );
 
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
@@ -149,6 +154,44 @@ const verifyAccount = test(async (req, res) => {
   } finally {
     transaction.release();
   }
+});
+
+const login = test(async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({
+      message: "Please enter both email and password",
+    });
+  }
+  const account = await pg.query(
+    `
+  SELECT * FROM accounts 
+  WHERE
+    email = $1`,
+    [email],
+  );
+  if (account.rows.length < 1) {
+    return res.status(401).json({
+      message: "Incorrect email or password",
+    });
+  }
+  const verifiedPassword = await verifyPassword(
+    account.rows[0].password_hash,
+    password,
+  );
+  if (!verifiedPassword) {
+    return res.status(401).json({
+      message: "Incorrect email or password",
+    });
+  }
+  if (account.rows[0].status === "unverified") {
+    return res.status(400).json({
+      message: "Please verify the account first",
+    });
+  }
+  res.status(200).json({
+    message: "Account logged in",
+  });
 });
 
 module.exports = {
