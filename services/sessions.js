@@ -1,0 +1,28 @@
+const { randomBytes } = require("crypto");
+const { client } = require(`../config/redis.js`);
+
+const createSession = async (userId) => {
+  const sessionId = randomBytes(32).toString("hex");
+  const key = `session:${sessionId}`;
+  const data = { userId };
+
+  await client.set(key, JSON.stringify(data), { EX: 60 * 60 * 24 });
+  return sessionId;
+};
+
+const getSession = async (sessionId) => {
+  const key = `session:${sessionId}`;
+  const value = await client.get(key);
+
+  if (!value) return null;
+  const session = JSON.parse(value);
+
+  return session;
+};
+
+const deleteSession = async (sessionId) => {
+  const key = `session:${sessionId}`;
+  await client.del(key);
+};
+
+module.exports = { createSession, getSession, deleteSession };

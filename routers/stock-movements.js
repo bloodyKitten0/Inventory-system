@@ -11,6 +11,9 @@ const {
 } = require("../controllers/stock-movements");
 
 const router = express.Router();
+const authenticate = require("../middlewares/auth.js");
+
+router.use(authenticate);
 
 /**
  * @swagger

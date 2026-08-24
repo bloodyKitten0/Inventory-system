@@ -2,6 +2,9 @@ const express = require("express");
 const router = express.Router();
 
 const categoriesController = require("../controllers/categories");
+const authenticate = require("../middlewares/auth.js");
+
+router.use(authenticate);
 
 /**
  * @swagger

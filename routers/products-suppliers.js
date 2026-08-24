@@ -2,6 +2,9 @@ const express = require("express");
 const router = express.Router();
 
 const productsSupplierController = require("../controllers/products-suppliers");
+const authenticate = require("../middlewares/auth.js");
+
+router.use(authenticate);
 
 /**
  * @swagger

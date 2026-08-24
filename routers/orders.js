@@ -16,6 +16,9 @@ const {
 } = require(`../controllers/orders`);
 
 const router = express.Router();
+const authenticate = require("../middlewares/auth.js");
+
+router.use(authenticate);
 
 /**
  * @swagger

@@ -1,4 +1,5 @@
 const express = require("express");
+const cookieParser = require("cookie-parser");
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsDoc = require("swagger-jsdoc");
 
@@ -9,14 +10,15 @@ const suppliersRouter = require("./routers/suppliers.js");
 const warehousesRouter = require("./routers/warehouses.js");
 const productsSuppliersRouter = require("./routers/products-suppliers.js");
 const inventoryRouter = require("./routers/inventory.js");
-const ordersItemsRouter = require(`./routers/orders-items.js`);
-const ordersRouter = require(`./routers/orders.js`);
-const stockMovementsRouter = require(`./routers/stock-movements.js`);
+const ordersItemsRouter = require("./routers/orders-items.js");
+const ordersRouter = require("./routers/orders.js");
+const stockMovementsRouter = require("./routers/stock-movements.js");
 const authRouter = require("./routers/auth.js");
 
 const app = express();
 
 app.use(express.json());
+app.use(cookieParser());
 
 const swaggerOptions = {
   definition: {
@@ -51,6 +53,4 @@ app.use("/", ordersRouter);
 app.use("/", stockMovementsRouter);
 app.use("/auth", authRouter);
 
-app.listen(3000, () => {
-  console.log(`Server is running`);
-});
+module.exports = app;
