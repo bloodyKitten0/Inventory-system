@@ -8,6 +8,7 @@ const sendVerificationEmail = require("../services/email.js");
 const { hashPassword, verifyPassword } = require(
   `../services/password-hashing.js`,
 );
+const { createSession, deleteSession } = require("../services/sessions.js");
 
 const register = test(async (req, res) => {
   const { customer_name, username, email, password, shipping_address } =
@@ -189,12 +190,46 @@ const login = test(async (req, res) => {
       message: "Please verify the account first",
     });
   }
-  res.status(200).json({
-    message: "Account logged in",
-  });
+
+  const sessionId = await createSession(account.rows[0].account_id);
+
+  res
+    .cookie("sessionId", sessionId, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax",
+      maxAge: 24 * 60 * 60 * 1000,
+    })
+    .status(200)
+    .json({
+      message: "Account logged in",
+    });
 });
 
+const logout = test(async (req, res) => {
+  const sessionId = req.cookies.sessionId;
+
+  if (!sessionId) {
+    return res.status(401).json({
+      message: "You are not logged in",
+    });
+  }
+
+  await deleteSession(sessionId);
+
+  res.clearCookie("sessionId", {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
+  });
+
+  res.status(200).json({
+    message: "Account logged out",
+  });
+});
 module.exports = {
   register,
   verifyAccount,
+  login,
+  logout,
 };

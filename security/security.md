@@ -283,6 +283,15 @@ application failures.
 Error handling does not prevent unauthorized access or
 unauthorized modification of data.
 
+## Password hashing
+
+To not save the passwords in the database as plain text anyone can use
+
+helps to slow entering accounts if the database was exposed
+
+**Limitations**
+There's nothing called absolute safety so we can't say no one would ever surpass it
+
 # Missing Security Controls
 
 ## Authentication
@@ -331,21 +340,6 @@ endpoint.
 - Automated abuse
 - Excessive requests
 
-## Password Hashing
-
-The database currently stores passwords in plaintext.
-
-If an attacker gains access to the database, they could
-directly obtain the users' passwords.
-
-Passwords should instead be stored as secure password hashes.
-
-**Primary threats addressed:**
-
-- Password disclosure
-- Damage caused by database compromise
-- Offline password attacks
-
 # Security Priorities
 
 ## Ranking system
@@ -366,11 +360,6 @@ To establish the identity of the requester so the system knows who is making the
 
 **Reason**
 To determine what an authenticated user is allowed to access or modify.
-
-## 3. Password Hashing 🟠 Very High
-
-**Reason**
-To prevent passwords from being directly exposed if the database is compromised.
 
 ## 4. Rate Limiting 🟣 High
 

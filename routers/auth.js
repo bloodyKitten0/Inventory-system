@@ -1,7 +1,12 @@
 const express = require("express");
 const router = express.Router();
 
-const { register, verifyAccount } = require("../security/auth.js");
+const {
+  register,
+  verifyAccount,
+  login,
+  logout,
+} = require("../security/auth.js");
 
 /**
  * @swagger
@@ -64,5 +69,53 @@ router.post("/register", register);
  *         description: Invalid, missing, or expired verification token
  */
 router.get("/verify", verifyAccount);
+
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: Log into an account
+ *     tags:
+ *       - Authentication
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: user@example.com
+ *               password:
+ *                 type: string
+ *                 example: password123
+ *     responses:
+ *       200:
+ *         description: Account logged in successfully
+ *       400:
+ *         description: Missing email or password
+ *       401:
+ *         description: Incorrect email or password
+ */
+router.post("/login", login);
+
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: Log out of the current account
+ *     tags:
+ *       - Authentication
+ *     responses:
+ *       200:
+ *         description: Account logged out successfully
+ *       401:
+ *         description: User is not logged in
+ */
+router.post("/logout", logout);
 
 module.exports = router;
