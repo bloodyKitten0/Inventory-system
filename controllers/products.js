@@ -12,13 +12,37 @@ const readOne = readId("products", "Product");
 const create = test(async (req, res) => {
   const { name, cata, desc, price } = req.body;
 
+  if (typeof name !== "string" || name.trim().length < 2) {
+    return res.status(400).json({
+      message: "Invalid product name",
+    });
+  }
+
+  if (!Number.isInteger(cata) || cata <= 0) {
+    return res.status(400).json({
+      message: "Invalid category ID",
+    });
+  }
+
+  if (typeof desc !== "string" || desc.trim().length < 2) {
+    return res.status(400).json({
+      message: "Invalid product description",
+    });
+  }
+
+  if (typeof price !== "number" || !Number.isFinite(price) || price < 0) {
+    return res.status(400).json({
+      message: "Invalid product price",
+    });
+  }
+
   const result = await pg.query(
     `
     INSERT INTO products(name, category_id, description, price)
     VALUES ($1, $2, $3, $4)
     RETURNING *
     `,
-    [name, cata, desc, price],
+    [name.trim(), cata, desc.trim(), price],
   );
 
   res.status(201).json(result.rows[0]);
@@ -27,9 +51,33 @@ const create = test(async (req, res) => {
 const update = test(async (req, res) => {
   const { name, cata, desc, price } = req.body;
 
+  if (typeof name !== "string" || name.trim().length < 2) {
+    return res.status(400).json({
+      message: "Invalid product name",
+    });
+  }
+
+  if (!Number.isInteger(cata) || cata <= 0) {
+    return res.status(400).json({
+      message: "Invalid category ID",
+    });
+  }
+
+  if (typeof desc !== "string" || desc.trim().length < 2) {
+    return res.status(400).json({
+      message: "Invalid product description",
+    });
+  }
+
+  if (typeof price !== "number" || !Number.isFinite(price) || price < 0) {
+    return res.status(400).json({
+      message: "Invalid product price",
+    });
+  }
+
   const result = await pg.query(
     `
-    UPDATE products 
+    UPDATE products
     SET
       name = $2,
       category_id = $3,
@@ -38,10 +86,12 @@ const update = test(async (req, res) => {
     WHERE id = $1
     RETURNING *
     `,
-    [req.params.id, name, cata, desc, price],
+    [req.params.id, name.trim(), cata, desc.trim(), price],
   );
 
-  if (!checkRow(result)) return res.status(404).json("Product not found");
+  if (!checkRow(result)) {
+    return res.status(404).json("Product not found");
+  }
 
   res.status(200).json(result.rows[0]);
 });

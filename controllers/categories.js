@@ -12,13 +12,25 @@ const readOne = readId("categories", "Category");
 const create = test(async (req, res) => {
   const { name, desc } = req.body;
 
+  if (typeof name !== "string" || name.trim().length < 2) {
+    return res.status(400).json({
+      message: "Invalid category name",
+    });
+  }
+
+  if (typeof desc !== "string" || desc.trim().length < 2) {
+    return res.status(400).json({
+      message: "Invalid category description",
+    });
+  }
+
   const result = await pg.query(
     `
-    INSERT INTO categories(name,created_at,updated_at, description)
+    INSERT INTO categories(name, created_at, updated_at, description)
     VALUES ($1, now(), now(), $2)
     RETURNING *
     `,
-    [name, desc],
+    [name.trim(), desc.trim()],
   );
 
   res.status(201).json(result.rows[0]);
@@ -26,6 +38,18 @@ const create = test(async (req, res) => {
 
 const update = test(async (req, res) => {
   const { name, desc } = req.body;
+
+  if (typeof name !== "string" || name.trim().length < 2) {
+    return res.status(400).json({
+      message: "Invalid category name",
+    });
+  }
+
+  if (typeof desc !== "string" || desc.trim().length < 2) {
+    return res.status(400).json({
+      message: "Invalid category description",
+    });
+  }
 
   const result = await pg.query(
     `
@@ -37,10 +61,12 @@ const update = test(async (req, res) => {
     WHERE id = $1
     RETURNING *
     `,
-    [req.params.id, name, desc],
+    [req.params.id, name.trim(), desc.trim()],
   );
 
-  if (!checkRow(result)) return res.status(404).json("category not found");
+  if (!checkRow(result)) {
+    return res.status(404).json("category not found");
+  }
 
   res.status(200).json(result.rows[0]);
 });

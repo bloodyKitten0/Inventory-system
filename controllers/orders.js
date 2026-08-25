@@ -6,26 +6,52 @@ const readId = require("../services/read-id.js");
 const deleteId = require("../services/remove.js");
 const { one } = require(`../services/read-relation.js`);
 const read = readAll(`orders`);
+const validStatuses = ["pending", "processing", "completed", "cancelled"];
 
 const readOne = readId(`orders`, `order`);
 
 const create = test(async (req, res) => {
-  const { cid, wid, status } = req.body;
+  const { cid, wid } = req.body;
+  if (!Number.isInteger(cid) || cid <= 0) {
+    return res.status(400).json({
+      message: "Invalid customer ID",
+    });
+  }
+
+  if (!Number.isInteger(wid) || wid <= 0) {
+    return res.status(400).json({
+      message: "Invalid warehouse ID",
+    });
+  }
   const result = await pg.query(
     `
         INSERT INTO orders 
             (customer_id,warehouse_id,status,created_at)
         VALUES
-            ($1,$2,$3,now())
+            ($1,$2,'pending',now())
         RETURNING * 
         `,
-    [cid, wid, status],
+    [cid, wid],
   );
   res.status(201).json(result.rows[0]);
 });
 
 const update = test(async (req, res) => {
   const { cid, wid, status } = req.body;
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json("Invalid order status");
+  }
+  if (!Number.isInteger(cid) || cid <= 0) {
+    return res.status(400).json({
+      message: "Invalid customer ID",
+    });
+  }
+
+  if (!Number.isInteger(wid) || wid <= 0) {
+    return res.status(400).json({
+      message: "Invalid warehouse ID",
+    });
+  }
 
   const result = await pg.query(
     `
@@ -64,6 +90,10 @@ const warehouseOrders = one(
 
 const updateStatus = test(async (req, res) => {
   const { status } = req.body;
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json("Invalid order status");
+  }
+
   const result = await pg.query(
     `
     UPDATE orders
@@ -74,7 +104,6 @@ const updateStatus = test(async (req, res) => {
     [status, req.params.id],
   );
   if (!checkRow(result)) return res.status(404).json("order not found");
-
   res.status(200).json(result.rows[0]);
 });
 
@@ -86,7 +115,7 @@ const cancelOrder = test(async (req, res) => {
         status = 'cancelled'
     WHERE 
         id = $1
-        AND status NOT IN ('completed', 'cancelled')
+       AND status = 'pending'
     RETURNING *`,
     [req.params.id],
   );
@@ -231,7 +260,7 @@ const processOrder = test(async (req, res) => {
     const updatedOrder = await transaction.query(
       `
       UPDATE orders
-      SET status = 'DELIVERED'
+      SET status = 'processing'
       WHERE id = $1
       RETURNING *
       `,

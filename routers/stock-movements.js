@@ -3,8 +3,6 @@ const express = require("express");
 const {
   read,
   readOne,
-  create,
-  remove,
   productMovements,
   warehouseMovements,
   productWarehouseMovements,
@@ -54,65 +52,6 @@ router.get("/stock-movements", read);
  *         description: Stock movement not found
  */
 router.get("/stock-movements/:id", readOne);
-
-/**
- * @swagger
- * /stock-movements:
- *   post:
- *     summary: Create a stock movement
- *     tags: [Stock Movements]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - pid
- *               - wid
- *               - movementType
- *               - quantity
- *             properties:
- *               pid:
- *                 type: integer
- *                 description: Product ID
- *               wid:
- *                 type: integer
- *                 description: Warehouse ID
- *               movementType:
- *                 type: string
- *                 description: Type of stock movement
- *                 example: SALE
- *               quantity:
- *                 type: integer
- *                 description: Quantity involved in the movement
- *                 example: 5
- *     responses:
- *       201:
- *         description: Stock movement created
- */
-router.post("/stock-movements", create);
-
-/**
- * @swagger
- * /stock-movements/{id}:
- *   delete:
- *     summary: Delete a stock movement
- *     tags: [Stock Movements]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: Stock movement ID
- *     responses:
- *       200:
- *         description: Stock movement deleted
- *       404:
- *         description: Stock movement not found
- */
-router.delete("/stock-movements/:id", remove);
 
 /**
  * @swagger

@@ -12,6 +12,25 @@ const readOne = readId("suppliers", "Supplier");
 const create = test(async (req, res) => {
   const { supplier_name, supplier_email, supplier_phone } = req.body;
 
+  if (typeof supplier_name !== "string" || supplier_name.trim().length < 2) {
+    return res.status(400).json({
+      message: "Invalid supplier name",
+    });
+  }
+  if (
+    typeof supplier_email !== "string" ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supplier_email)
+  ) {
+    return res.status(400).json({
+      message: "Invalid supplier email",
+    });
+  }
+  if (typeof supplier_phone !== "string" || supplier_phone.trim().length < 7) {
+    return res.status(400).json({
+      message: "Invalid supplier phone",
+    });
+  }
+
   const result = await pg.query(
     `
     INSERT INTO suppliers
@@ -20,7 +39,7 @@ const create = test(async (req, res) => {
       ($1, $2, $3, now(), now())
     RETURNING *
     `,
-    [supplier_name, supplier_email, supplier_phone],
+    [supplier_name.trim(), supplier_email.trim(), supplier_phone.trim()],
   );
 
   res.status(201).json(result.rows[0]);
@@ -28,6 +47,25 @@ const create = test(async (req, res) => {
 
 const update = test(async (req, res) => {
   const { supplier_name, supplier_email, supplier_phone } = req.body;
+
+  if (typeof supplier_name !== "string" || supplier_name.trim().length < 2) {
+    return res.status(400).json({
+      message: "Invalid supplier name",
+    });
+  }
+  if (
+    typeof supplier_email !== "string" ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supplier_email)
+  ) {
+    return res.status(400).json({
+      message: "Invalid supplier email",
+    });
+  }
+  if (typeof supplier_phone !== "string" || supplier_phone.trim().length < 7) {
+    return res.status(400).json({
+      message: "Invalid supplier phone",
+    });
+  }
 
   const result = await pg.query(
     `
@@ -40,10 +78,17 @@ const update = test(async (req, res) => {
     WHERE id = $1
     RETURNING *
     `,
-    [req.params.id, supplier_name, supplier_email, supplier_phone],
+    [
+      req.params.id,
+      supplier_name.trim(),
+      supplier_email.trim(),
+      supplier_phone.trim(),
+    ],
   );
 
-  if (!checkRow(result)) return res.status(404).json("Supplier not found");
+  if (!checkRow(result)) {
+    return res.status(404).json("Supplier not found");
+  }
 
   res.status(200).json(result.rows[0]);
 });

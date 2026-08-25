@@ -1,147 +1,186 @@
 # Assets
 
-## Asset: Authentication system
+## Asset: Authentication System
 
 **Why it matters:**
+
 Users need authentication to access protected parts of the system.
+
 If authentication becomes unavailable, legitimate users may be unable to log in.
 
 **Primary security concern:**
+
 Availability
 
 ## Asset: Inventory API
 
 **Why it matters:**
+
 The application depends on the API to perform inventory operations.
+
 If it becomes unavailable, users cannot use the system.
 
 **Primary security concern:**
+
 Availability
 
 **Who should have access:**
+
 Authorized clients/users
 
-## Asset: Inventory database
+## Asset: Inventory Database
 
 **Why it matters:**
-The API depends on the database to retrieve and modify inventory,
-products, orders, customers, etc.
+
+The API depends on the database to retrieve and modify inventory, products, orders, customers, and other application data.
 
 **Primary security concern:**
+
 Availability
 
 **Who should have access:**
+
 Application / authorized administrators
 
-## Asset: Customer information
+## Asset: Customer Information
 
 **Why it matters:**
-Contains private customer information, including email addresses.
+
+Contains private customer information, including email addresses and shipping addresses.
 
 **Primary security concern:**
+
 Confidentiality
 
 **Who should have access:**
+
 Admins / authorized personnel
 
 ## Asset: Inventory
 
-**Why iy matters:**
-Contains senstive info that must not be edited by anyone without trust
+**Why it matters:**
+
+Contains inventory information that must not be modified by unauthorized users.
 
 **Primary security concern:**
+
 Integrity
 
 **Who should have access:**
+
 Admins / authorized personnel
 
-## Asset: Products suppliers
+## Asset: Products Suppliers
 
-**Why iy matters:**
-No one must know it except people that's related to it
+**Why it matters:**
+
+Contains relationships between products and suppliers that should only be accessible to authorized personnel.
 
 **Primary security concern:**
+
 Confidentiality
 
 **Who should have access:**
-High tier admins / authorized personnel
+
+High-tier admins / authorized personnel
 
 ## Asset: Orders
 
-**Why iy matters:**
-The customer should only access his orders
+**Why it matters:**
+
+Customers should only be able to access their own orders.
 
 **Primary security concern:**
+
 Confidentiality
 
 **Who should have access:**
-Admins / authorized personnel
+
+Customers for their own orders / admins / authorized personnel
 
 ## Asset: Categories
 
-**Why iy matters:**
-No one should have the ability to create it without permision
+**Why it matters:**
+
+Unauthorized users should not be able to create or modify product categories.
 
 **Primary security concern:**
+
 Integrity
 
 **Who should have access:**
-Hight tier admins / authorized personnel
 
-## Asset: Orders items
+High-tier admins / authorized personnel
 
-**Why iy matters:**
-The customer should only access his order's items not others
+## Asset: Order Items
+
+**Why it matters:**
+
+Customers should only be able to access the items belonging to their own orders.
 
 **Primary security concern:**
+
 Confidentiality
 
 **Who should have access:**
-admins / authorized personnel
+
+Customers for their own order items / admins / authorized personnel
 
 ## Asset: Products
 
-**Why iy matters:**
-No one should edit it without having permision
+**Why it matters:**
+
+Product information and pricing must not be modified without authorization.
 
 **Primary security concern:**
+
 Integrity
 
 **Who should have access:**
-High tier admins / authorized personnel
 
-## Asset: Stock movement
+High-tier admins / authorized personnel
 
-**Why iy matters:**
-Only movement admins should be able to see it
+## Asset: Stock Movements
+
+**Why it matters:**
+
+Stock movement history represents changes to inventory and should only be visible to authorized personnel.
 
 **Primary security concern:**
-Confidentiality
+
+Confidentiality / Integrity
 
 **Who should have access:**
+
 Movement admins / authorized personnel
 
-## Asset: Suppleirs
+## Asset: Suppliers
 
-**Why iy matters:**
-No one must know them if not with permision
+**Why it matters:**
+
+Supplier information should not be accessible or modified without authorization.
 
 **Primary security concern:**
-Confidentiality/Integrity
+
+Confidentiality / Integrity
 
 **Who should have access:**
-High tier admins / authorized personnel
+
+High-tier admins / authorized personnel
 
 ## Asset: Warehouses
 
-**Why iy matters:**
-no one must edit or know them without permision
+**Why it matters:**
+
+Warehouse information should not be accessed or modified without authorization.
 
 **Primary security concern:**
-Confidentiality/Integrity
+
+Confidentiality / Integrity
 
 **Who should have access:**
-admins / authorized personnel
+
+Admins / authorized personnel
 
 # Attack Surface
 
@@ -155,12 +194,11 @@ The API exposes GET, POST, PATCH and DELETE operations.
 
 ## Route Parameters
 
-Endpoints such as /products/:id accept client-controlled identifiers.
+Endpoints such as `/products/:id` accept client-controlled identifiers.
 
 ## Request Bodies
 
-JSON request bodies are accepted through express.json() and are
-passed into the application's request-processing logic.
+JSON request bodies are accepted through `express.json()` and are passed into the application's request-processing logic.
 
 ## Query Parameters
 
@@ -168,30 +206,45 @@ Where used, query parameters are controlled by the client.
 
 ## API Documentation
 
-The Swagger UI is exposed through /api-docs.
+The Swagger UI is exposed through `/api-docs`.
 
 ## Database Access
 
-Controllers/services process API input and use it to interact
-with the PostgreSQL database.
+Controllers and services process API input and use it to interact with the PostgreSQL database.
+
+## Authentication
+
+Authentication endpoints accept credentials and verification tokens from clients.
+
+## Session Management
+
+Authenticated requests use a session ID stored in an HTTP-only cookie. The corresponding session data is stored server-side in Redis.
 
 # Trust Boundaries
 
 ## Client → API
 
-The client may add untrusted info that may affect the system
+The client may provide untrusted input that can affect the application.
+
+All client-controlled input must therefore be validated before being used by application logic or database operations.
 
 ## API → Database
 
-The API processes client-controlled input before using it to interact with the database.
-Input must be properly checked before it can affect database state.
+The API processes client-controlled input before using it to interact with the PostgreSQL database.
+
+Parameterized SQL queries and input validation are used to reduce the risk of malicious or invalid input affecting database state.
+
+## API → Redis
+
+The API communicates with Redis for server-side session storage.
+
+Session identifiers are generated by the server and session data is stored server-side rather than trusting client-provided session contents.
 
 # Threats
 
 ## Read
 
-An attacker may attempt to access information they are not authorized
-to see.
+An attacker may attempt to access information they are not authorized to see.
 
 Examples:
 
@@ -201,15 +254,15 @@ Examples:
 - Order items belonging to other customers
 - Stock movement information
 - Warehouse information
-- Accessing another customer's resources by changing an identifier supplied in the request.
+- Accessing another customer's resources by changing an identifier supplied in the request
 
 **Primary security concern:**
+
 Confidentiality
 
 ## Create
 
-An attacker may attempt to create data that should not exist or that
-they are not authorized to create.
+An attacker may attempt to create data that should not exist or that they are not authorized to create.
 
 Examples:
 
@@ -218,8 +271,10 @@ Examples:
 - Fake suppliers
 - Unauthorized categories
 - Unauthorized orders
+- Unauthorized inventory records
 
 **Primary security concern:**
+
 Integrity
 
 ## Modify
@@ -234,8 +289,10 @@ Examples:
 - Modifying inventory
 - Modifying orders
 - Modifying warehouse information
+- Changing data belonging to another customer
 
 **Primary security concern:**
+
 Integrity
 
 ## Delete
@@ -247,74 +304,175 @@ Examples:
 - Products
 - Suppliers
 - Categories
-- Stock movements
 - Orders
 - Warehouse information
 
+Stock movement deletion is not exposed as a normal public operation because stock movements represent historical inventory activity.
+
 **Primary security concerns:**
+
 Integrity / Availability
+
+## Authentication
+
+An attacker may attempt to gain access to an account using stolen, guessed, or invalid credentials.
+
+Examples:
+
+- Repeated login attempts
+- Using an unverified account
+- Using an invalid session
+- Using a stolen session identifier
+
+**Primary security concerns:**
+
+Confidentiality / Integrity
+
+## Session
+
+An attacker may attempt to use or manipulate session information to access an authenticated account.
+
+Examples:
+
+- Obtaining a valid session ID
+- Using an expired session
+- Reusing a deleted session
+
+**Primary security concern:**
+
+Confidentiality
 
 # Current Security Controls
 
 ## Input Validation
 
-The API performs input validation on certain fields before
-processing requests.
+The API performs input validation on fields before processing requests.
 
-Examples include preventing negative prices and quantities.
+Examples include:
 
-This helps prevent invalid or nonsensical data from entering
-the system.
+- Preventing negative prices
+- Validating IDs
+- Validating quantities
+- Validating email addresses
+- Validating required strings
+- Validating shipping addresses
 
-**Limitations**
-Input validation does not determine whether a user is
-authorized to perform an operation or whether the requested
-change is allowed.
+This helps prevent invalid or nonsensical data from entering the system.
+
+**Limitations:**
+
+Input validation does not determine whether a user is authorized to perform an operation or whether the requested change is allowed.
+
+## Parameterized SQL
+
+Database values supplied by requests are passed through parameterized SQL queries using parameters such as `$1`, `$2`, and `$3`.
+
+This reduces the risk of SQL injection through normal request values.
+
+**Limitations:**
+
+Parameterized values do not automatically provide authorization or prevent every other form of application-level attack.
 
 ## Error Handling
 
-The API contains error-handling mechanisms for handling
-request and application errors.
+The API contains error-handling mechanisms for handling request and application errors.
 
-This helps prevent expected errors from causing uncontrolled
-application failures.
+This helps prevent expected errors from causing uncontrolled application failures.
 
-**Limitations**
-Error handling does not prevent unauthorized access or
-unauthorized modification of data.
+**Limitations:**
 
-## Password hashing
+Error handling does not prevent unauthorized access or unauthorized modification of data.
 
-To not save the passwords in the database as plain text anyone can use
+## Password Hashing
 
-helps to slow entering accounts if the database was exposed
+Passwords are not stored as plaintext.
 
-**Limitations**
-There's nothing called absolute safety so we can't say no one would ever surpass it
+The application uses Argon2 to derive password hashes before storing passwords in the database.
+
+This makes offline password cracking substantially more expensive if the password database is exposed.
+
+**Limitations:**
+
+Password hashing does not prevent account compromise through other methods, such as stolen credentials. No password-hashing system provides absolute protection against password attacks.
+
+## Account Verification
+
+New accounts must be verified using a verification token before they can log in.
+
+Verification tokens are generated randomly and only their hashes are stored in the database.
+
+**Limitations:**
+
+Account verification does not determine what an authenticated user is allowed to access or modify.
+
+## Server-Side Sessions
+
+Authenticated users receive a cryptographically random session ID.
+
+The session data is stored server-side in Redis, while the session ID is stored in an HTTP-only cookie.
+
+Sessions also have an expiration time through Redis TTL.
+
+**Limitations:**
+
+Authentication through sessions establishes the user's identity but does not determine whether that user has permission to perform a particular operation.
+
+## HTTP-Only Session Cookie
+
+The session cookie uses `httpOnly: true`, preventing normal client-side JavaScript from directly accessing the cookie.
+
+The cookie also uses `sameSite: "lax"`.
+
+The `secure` setting is environment-dependent so local HTTP development can use an insecure connection while HTTPS deployment can require secure cookies.
+
+**Limitations:**
+
+Cookie protections do not replace authorization and do not protect against every possible session-related attack.
+
+## Authentication Middleware
+
+Protected API routes use authentication middleware.
+
+The middleware:
+
+1. Reads the session ID from the cookie.
+2. Retrieves the session from Redis.
+3. Rejects missing or invalid sessions.
+4. Places the authenticated user's session information into `req.user`.
+
+This establishes the identity of the requester for protected routes.
+
+**Limitations:**
+
+Authentication only answers who the requester is. It does not yet determine whether that user is authorized to access a specific resource or perform a specific operation.
+
+## Transactions
+
+The application uses PostgreSQL transactions for operations where multiple database changes must succeed or fail together.
+
+Inventory adjustment and order processing use transactions and row locking to help maintain consistent inventory state during concurrent operations.
+
+**Limitations:**
+
+Transactions protect database consistency but do not determine whether the requester is authorized to perform the operation.
 
 # Missing Security Controls
 
-## Authentication
-
-The API currently does not establish the identity of the
-requester.
-
-Without authentication, the system cannot reliably determine
-who is making a request.
-
-Primary threats addressed:
-
-- Unauthorized access
-- Unauthorized actions
-- Identity-based access control failures
-
 ## Authorization
 
-The API currently does not enforce whether an authenticated
-user is permitted to perform a particular operation on a
-particular resource.
+**Status: NOT IMPLEMENTED**
 
-This includes authorization for CRUD operations.
+The API can now establish the identity of an authenticated user, but it does not yet fully enforce whether that user is permitted to perform a particular operation on a particular resource.
+
+Examples:
+
+- A customer accessing another customer's order
+- A normal user modifying a product
+- A user modifying inventory
+- A user deleting a warehouse
+- A user viewing supplier information
+- A user accessing stock movement history
+- A user modifying resources by changing an ID in the request
 
 Primary threats addressed:
 
@@ -323,16 +481,16 @@ Primary threats addressed:
 - Unauthorized modification
 - Unauthorized deletion
 - Privilege escalation
+- Broken access control
 - Unauthorized access to another customer's resources
 
 ## Rate Limiting
 
-The API currently does not limit how frequently a client can
-send requests.
+**Status: NOT IMPLEMENTED**
 
-An attacker could automate a large number of requests, such
-as repeatedly attempting different passwords against a login
-endpoint.
+The API currently does not limit how frequently a client can send requests.
+
+An attacker could automate a large number of requests, such as repeatedly attempting different passwords against a login endpoint.
 
 **Primary threats addressed:**
 
@@ -342,26 +500,89 @@ endpoint.
 
 # Security Priorities
 
-## Ranking system
+## Ranking System
 
 🔴 Critical
+
 🟠 Very High
+
 🟣 High
+
 🟡 Medium
+
 🔵 Low
+
 🟢 Minimal
 
 ## 1. Authentication 🔴 Critical
 
-**Reason**
-To establish the identity of the requester so the system knows who is making the request.
+**Status: IMPLEMENTED**
+
+**Reason:**
+
+Authentication establishes the identity of the requester so the system can determine which account is making a request.
+
+Current controls include:
+
+- Email/password login
+- Password hashing with Argon2
+- Account verification
+- Verification tokens
+- Redis-backed sessions
+- Cryptographically random session IDs
+- HTTP-only session cookies
+- Session expiration
+- Logout/session deletion
+- Authentication middleware
 
 ## 2. Authorization 🔴 Critical
 
-**Reason**
-To determine what an authenticated user is allowed to access or modify.
+**Status: NOT IMPLEMENTED**
 
-## 4. Rate Limiting 🟣 High
+**Reason:**
 
-**Reason**
-To prevent attackers from making large numbers of automated requests ,especially repeated login attempts.
+Authentication tells the system who the user is. Authorization determines what that authenticated user is allowed to access or modify.
+
+This is the next major security capability required by the application.
+
+Planned areas include:
+
+- Role-based access control
+- Resource ownership
+- Customer access restrictions
+- Administrative permissions
+- Operation-specific permissions
+
+## 3. Rate Limiting 🟣 High
+
+**Status: NOT IMPLEMENTED**
+
+**Reason:**
+
+Rate limiting helps prevent attackers from making large numbers of automated requests, especially repeated authentication attempts.
+
+It should be implemented after the authorization system has been established.
+
+# Current Security State
+
+The application currently has:
+
+- Input validation
+- Parameterized SQL queries
+- Centralized error handling
+- Password hashing with Argon2
+- Account verification
+- Hashed verification tokens
+- Redis-backed server-side sessions
+- Cryptographically random session IDs
+- HTTP-only session cookies
+- Session expiration
+- Authentication middleware
+- Database transactions
+- Row locking for important inventory operations
+
+The application does **not yet have authorization/RBAC or rate limiting**.
+
+The next major security phase is:
+
+Authentication → Authorization → RBAC → Resource Ownership → Rate Limiting

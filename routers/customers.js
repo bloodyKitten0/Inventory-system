@@ -60,16 +60,16 @@ router.get("/:id", customersController.readOne);
  *             required:
  *               - customer_name
  *               - customer_email
- *               - customer_address
+ *               - shipping_address
  *             properties:
  *               customer_name:
  *                 type: string
  *               customer_email:
  *                 type: string
  *                 example: customer@example.com
- *               customer_address:
+ *               shipping_address:
  *                 type: string
- *                 example: Riyadh, Saudi Arabia
+ *                 example: Tokyo, Japan
  *     responses:
  *       201:
  *         description: Customer created successfully
@@ -98,9 +98,9 @@ router.post("/", customersController.create);
  *               customer_email:
  *                 type: string
  *                 example: customer@example.com
- *               customer_address:
+ *               shipping_address:
  *                 type: string
- *                 example: Riyadh, Saudi Arabia
+ *                 example: Tokyo, Japan
  *     responses:
  *       200:
  *         description: Customer updated successfully

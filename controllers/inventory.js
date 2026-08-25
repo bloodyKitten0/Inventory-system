@@ -12,6 +12,25 @@ const readOne = readId(`inventory`, `inventory`);
 
 const create = test(async (req, res) => {
   const { pid, wid, amo } = req.body;
+
+  if (!Number.isInteger(pid) || pid <= 0) {
+    return res.status(400).json({
+      message: "Invalid product ID",
+    });
+  }
+
+  if (!Number.isInteger(wid) || wid <= 0) {
+    return res.status(400).json({
+      message: "Invalid warehouse ID",
+    });
+  }
+
+  if (typeof amo !== "number" || !Number.isFinite(amo) || amo < 0) {
+    return res.status(400).json({
+      message: "Invalid inventory amount",
+    });
+  }
+
   const result = await pg.query(
     `
         INSERT INTO inventory (product_id,warehouse_id,amount,last_update)
@@ -19,11 +38,37 @@ const create = test(async (req, res) => {
         RETURNING *`,
     [pid, wid, amo],
   );
+
   res.status(201).json(result.rows[0]);
 });
 
 const update = test(async (req, res) => {
   const { pid, wid, amo } = req.body;
+
+  if (!Number.isInteger(pid) || pid <= 0) {
+    return res.status(400).json({
+      message: "Invalid product ID",
+    });
+  }
+
+  if (!Number.isInteger(wid) || wid <= 0) {
+    return res.status(400).json({
+      message: "Invalid warehouse ID",
+    });
+  }
+
+  if (typeof amo !== "number" || !Number.isFinite(amo) || amo < 0) {
+    return res.status(400).json({
+      message: "Invalid inventory amount",
+    });
+  }
+
+  if (!Number.isInteger(Number(req.params.id)) || Number(req.params.id) <= 0) {
+    return res.status(400).json({
+      message: "Invalid inventory ID",
+    });
+  }
+
   const result = await pg.query(
     `
         UPDATE inventory 
@@ -37,7 +82,11 @@ const update = test(async (req, res) => {
     `,
     [req.params.id, pid, wid, amo],
   );
-  if (!checkRow(result)) return res.status(404).json("inventory not found");
+
+  if (!checkRow(result)) {
+    return res.status(404).json("inventory not found");
+  }
+
   res.status(200).json(result.rows[0]);
 });
 
@@ -67,15 +116,23 @@ const warehouseInventory = two(
 
 const adjustStock = test(async (req, res) => {
   const { change } = req.body;
+
+  if (!Number.isInteger(Number(req.params.id)) || Number(req.params.id) <= 0) {
+    return res.status(400).json({
+      message: "Invalid inventory ID",
+    });
+  }
+
+  if (typeof change !== "number" || !Number.isFinite(change) || change === 0) {
+    return res.status(400).json({
+      message: "Change must be a finite non-zero number",
+    });
+  }
+
   const transaction = await pg.connect();
 
   try {
     await transaction.query(`BEGIN`);
-
-    if (change === 0) {
-      await transaction.query(`ROLLBACK`);
-      return res.status(400).json("Change cannot be zero");
-    }
 
     const result = await transaction.query(
       `
@@ -140,6 +197,14 @@ const adjustStock = test(async (req, res) => {
 });
 
 const lowStock = test(async (req, res) => {
+  const below = Number(req.params.below);
+
+  if (!Number.isFinite(below) || below < 0) {
+    return res.status(400).json({
+      message: "Invalid stock threshold",
+    });
+  }
+
   const result = await pg.query(
     `
     SELECT
@@ -150,11 +215,12 @@ const lowStock = test(async (req, res) => {
     HAVING SUM(amount) < $1
     ORDER BY product_id
     `,
-    [req.params.below],
+    [below],
   );
 
-  if (!checkRow(result))
+  if (!checkRow(result)) {
     return res.status(404).json(`Nothing is below that limit`);
+  }
 
   res.status(200).json(result.rows);
 });
@@ -162,34 +228,67 @@ const lowStock = test(async (req, res) => {
 const inventorySummary = test(async (req, res) => {
   const result = await pg.query(
     `
-  SELECT 
-    product_id,SUM(amount) AS TOTAL
-  FROM inventory
-  GROUP BY product_id
-  ORDER BY product_id`,
+    SELECT 
+      product_id,SUM(amount) AS TOTAL
+    FROM inventory
+    GROUP BY product_id
+    ORDER BY product_id`,
   );
-  if (!checkRow(result)) return res.status(404).json(`The inventory is empty`);
+
+  if (!checkRow(result)) {
+    return res.status(404).json(`The inventory is empty`);
+  }
 
   res.status(200).json(result.rows);
 });
 
 const inventorySummaryOne = test(async (req, res) => {
+  const productId = Number(req.params.id);
+
+  if (!Number.isInteger(productId) || productId <= 0) {
+    return res.status(400).json({
+      message: "Invalid product ID",
+    });
+  }
+
   const result = await pg.query(
     `
-  SELECT 
-    product_id,SUM(amount) AS TOTAL
-  FROM inventory
-  WHERE product_id = $1
-  GROUP BY product_id`,
-    [req.params.id],
+    SELECT 
+      product_id,SUM(amount) AS TOTAL
+    FROM inventory
+    WHERE product_id = $1
+    GROUP BY product_id`,
+    [productId],
   );
-  if (!checkRow(result)) return res.status(404).json(`The inventory is empty`);
+
+  if (!checkRow(result)) {
+    return res.status(404).json(`The inventory is empty`);
+  }
 
   res.status(200).json(result.rows);
 });
 
 const checkAvailability = test(async (req, res) => {
   const { amount, pid, wid } = req.body;
+
+  if (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0) {
+    return res.status(400).json({
+      message: "Invalid amount",
+    });
+  }
+
+  if (!Number.isInteger(pid) || pid <= 0) {
+    return res.status(400).json({
+      message: "Invalid product ID",
+    });
+  }
+
+  if (!Number.isInteger(wid) || wid <= 0) {
+    return res.status(400).json({
+      message: "Invalid warehouse ID",
+    });
+  }
+
   const result = await pg.query(
     `
     SELECT
@@ -205,7 +304,11 @@ const checkAvailability = test(async (req, res) => {
     `,
     [amount, pid, wid],
   );
-  if (!checkRow(result)) return res.status(404).json(`Your input is not valid`);
+
+  if (!checkRow(result)) {
+    return res.status(404).json(`Inventory not found`);
+  }
+
   res.status(200).json(result.rows);
 });
 
