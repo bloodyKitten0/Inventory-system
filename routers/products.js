@@ -3,6 +3,7 @@ const router = express.Router();
 
 const productsController = require("../controllers/products");
 const authenticate = require("../middlewares/auth.js");
+const requirePermission = require("../middlewares/authorization.js");
 
 router.use(authenticate);
 
@@ -42,7 +43,7 @@ router.use(authenticate);
  *       200:
  *         description: Products retrieved successfully
  */
-router.get("/", productsController.read);
+router.get("/", requirePermission("product.read"), productsController.read);
 
 /**
  * @swagger
@@ -64,7 +65,11 @@ router.get("/", productsController.read);
  *       404:
  *         description: Product not found
  */
-router.get("/:id", productsController.readOne);
+router.get(
+  "/:id",
+  requirePermission("product.read"),
+  productsController.readOne,
+);
 
 /**
  * @swagger
@@ -83,7 +88,11 @@ router.get("/:id", productsController.readOne);
  *       201:
  *         description: Product created successfully
  */
-router.post("/", productsController.create);
+router.post(
+  "/",
+  requirePermission("product.create"),
+  productsController.create,
+);
 
 /**
  * @swagger
@@ -111,7 +120,11 @@ router.post("/", productsController.create);
  *       404:
  *         description: Product not found
  */
-router.patch("/:id", productsController.update);
+router.patch(
+  "/:id",
+  requirePermission("product.update"),
+  productsController.update,
+);
 
 /**
  * @swagger
@@ -133,6 +146,10 @@ router.patch("/:id", productsController.update);
  *       404:
  *         description: Product not found
  */
-router.delete("/:id", productsController.remove);
+router.delete(
+  "/:id",
+  requirePermission("product.delete"),
+  productsController.remove,
+);
 
 module.exports = router;

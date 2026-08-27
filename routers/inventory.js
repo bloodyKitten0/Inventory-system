@@ -17,6 +17,7 @@ const {
 
 const router = express.Router();
 const authenticate = require("../middlewares/auth.js");
+const requirePermission = require("../middlewares/authorization.js");
 
 router.use(authenticate);
 
@@ -39,7 +40,7 @@ router.use(authenticate);
  *       404:
  *         description: No inventory found
  */
-router.get("/inventory", read);
+router.get("/inventory", requirePermission("inventory.read"), read);
 
 /**
  * @swagger
@@ -60,7 +61,11 @@ router.get("/inventory", read);
  *       404:
  *         description: Product inventory not found
  */
-router.get("/inventory/product/:id", productInventory);
+router.get(
+  "/inventory/product/:id",
+  requirePermission("inventory.read"),
+  productInventory,
+);
 
 /**
  * @swagger
@@ -81,7 +86,11 @@ router.get("/inventory/product/:id", productInventory);
  *       404:
  *         description: Warehouse inventory not found
  */
-router.get("/inventory/warehouse/:id", warehouseInventory);
+router.get(
+  "/inventory/warehouse/:id",
+  requirePermission("inventory.read"),
+  warehouseInventory,
+);
 
 /**
  * @swagger
@@ -102,7 +111,11 @@ router.get("/inventory/warehouse/:id", warehouseInventory);
  *       404:
  *         description: No products below the threshold
  */
-router.get("/inventory/low-stock/:below", lowStock);
+router.get(
+  "/inventory/low-stock/:below",
+  requirePermission("inventory.low_stock"),
+  lowStock,
+);
 
 /**
  * @swagger
@@ -116,7 +129,11 @@ router.get("/inventory/low-stock/:below", lowStock);
  *       404:
  *         description: Inventory is empty
  */
-router.get("/inventory/summary", inventorySummary);
+router.get(
+  "/inventory/summary",
+  requirePermission("inventory.summary"),
+  inventorySummary,
+);
 
 /**
  * @swagger
@@ -137,7 +154,11 @@ router.get("/inventory/summary", inventorySummary);
  *       404:
  *         description: Inventory is empty
  */
-router.get("/inventory/summary/:id", inventorySummaryOne);
+router.get(
+  "/inventory/summary/:id",
+  requirePermission("inventory.summary"),
+  inventorySummaryOne,
+);
 
 /**
  * @swagger
@@ -158,7 +179,7 @@ router.get("/inventory/summary/:id", inventorySummaryOne);
  *       404:
  *         description: Inventory not found
  */
-router.get("/inventory/:id", readOne);
+router.get("/inventory/:id", requirePermission("inventory.read"), readOne);
 
 /**
  * @swagger
@@ -190,7 +211,7 @@ router.get("/inventory/:id", readOne);
  *       201:
  *         description: Inventory created
  */
-router.post("/inventory", create);
+router.post("/inventory", requirePermission("inventory.create"), create);
 
 /**
  * @swagger
@@ -224,7 +245,7 @@ router.post("/inventory", create);
  *       404:
  *         description: Inventory not found
  */
-router.put("/inventory/:id", update);
+router.put("/inventory/:id", requirePermission("inventory.update"), update);
 
 /**
  * @swagger
@@ -244,7 +265,7 @@ router.put("/inventory/:id", update);
  *       404:
  *         description: Inventory not found
  */
-router.delete("/inventory/:id", remove);
+router.delete("/inventory/:id", requirePermission("inventory.delete"), remove);
 
 /**
  * @swagger
@@ -280,7 +301,11 @@ router.delete("/inventory/:id", remove);
  *       404:
  *         description: Inventory not found
  */
-router.patch("/inventory/:id/adjust", adjustStock);
+router.patch(
+  "/inventory/:id/adjust",
+  requirePermission("inventory.adjust"),
+  adjustStock,
+);
 
 /**
  * @swagger
@@ -317,6 +342,10 @@ router.patch("/inventory/:id/adjust", adjustStock);
  *       404:
  *         description: Inventory not found
  */
-router.post("/inventory/check-availability", checkAvailability);
+router.post(
+  "/inventory/check-availability",
+  requirePermission("inventory.checks"),
+  checkAvailability,
+);
 
 module.exports = router;

@@ -3,6 +3,7 @@ const router = express.Router();
 
 const warehousesController = require("../controllers/warehouses");
 const authenticate = require("../middlewares/auth.js");
+const requirePermission = require("../middlewares/authorization.js");
 
 router.use(authenticate);
 
@@ -23,7 +24,7 @@ router.use(authenticate);
  *       200:
  *         description: Warehouses retrieved successfully
  */
-router.get("/", warehousesController.read);
+router.get("/", requirePermission("warehouse.read"), warehousesController.read);
 
 /**
  * @swagger
@@ -43,7 +44,11 @@ router.get("/", warehousesController.read);
  *       404:
  *         description: Warehouse not found
  */
-router.get("/:id", warehousesController.readOne);
+router.get(
+  "/:id",
+  requirePermission("warehouse.read"),
+  warehousesController.readOne,
+);
 
 /**
  * @swagger
@@ -71,7 +76,11 @@ router.get("/:id", warehousesController.readOne);
  *       201:
  *         description: Warehouse created successfully
  */
-router.post("/", warehousesController.create);
+router.post(
+  "/",
+  requirePermission("warehouse.create"),
+  warehousesController.create,
+);
 
 /**
  * @swagger
@@ -104,7 +113,11 @@ router.post("/", warehousesController.create);
  *       404:
  *         description: Warehouse not found
  */
-router.patch("/:id", warehousesController.update);
+router.patch(
+  "/:id",
+  requirePermission("warehouse.update"),
+  warehousesController.update,
+);
 
 /**
  * @swagger
@@ -124,6 +137,10 @@ router.patch("/:id", warehousesController.update);
  *       404:
  *         description: Warehouse not found
  */
-router.delete("/:id", warehousesController.remove);
+router.delete(
+  "/:id",
+  requirePermission("warehouse.delete"),
+  warehousesController.remove,
+);
 
 module.exports = router;

@@ -14,6 +14,7 @@ const ordersItemsRouter = require("./routers/orders-items.js");
 const ordersRouter = require("./routers/orders.js");
 const stockMovementsRouter = require("./routers/stock-movements.js");
 const authRouter = require("./routers/auth.js");
+const rolesRouter = require("./routers/roles.js");
 
 const app = express();
 
@@ -40,18 +41,18 @@ const swaggerOptions = {
 const swaggerSpec = swaggerJsDoc(swaggerOptions);
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-
 app.use("/products", productsRouter);
 app.use("/categories", categoriesRouter);
 app.use("/customers", customersRouter);
 app.use("/suppliers", suppliersRouter);
 app.use("/warehouses", warehousesRouter);
 app.use("/products-suppliers", productsSuppliersRouter);
+app.use("/auth", authRouter);
+app.use("/roles", rolesRouter);
 app.use("/", inventoryRouter);
 app.use("/", ordersItemsRouter);
 app.use("/", ordersRouter);
 app.use("/", stockMovementsRouter);
-app.use("/auth", authRouter);
 
 app.use((req, res) => {
   res.status(404).json({

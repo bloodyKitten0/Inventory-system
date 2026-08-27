@@ -13,6 +13,7 @@ const {
 
 const router = express.Router();
 const authenticate = require("../middlewares/auth.js");
+const requirePermission = require("../middlewares/authorization.js");
 
 router.use(authenticate);
 
@@ -35,7 +36,7 @@ router.use(authenticate);
  *       404:
  *         description: No order items found
  */
-router.get("/orders-items", read);
+router.get("/orders-items", requirePermission("order_item.read"), read);
 
 /**
  * @swagger
@@ -56,7 +57,7 @@ router.get("/orders-items", read);
  *       404:
  *         description: Order item not found
  */
-router.get("/orders-items/:id", readOne);
+router.get("/orders-items/:id", requirePermission("order_item.read"), readOne);
 
 /**
  * @swagger
@@ -93,7 +94,7 @@ router.get("/orders-items/:id", readOne);
  *       201:
  *         description: Order item created
  */
-router.post("/orders-items", create);
+router.post("/orders-items", requirePermission("order_item.create"), create);
 
 /**
  * @swagger
@@ -134,7 +135,7 @@ router.post("/orders-items", create);
  *       404:
  *         description: Order item not found
  */
-router.put("/orders-items/:id", update);
+router.put("/orders-items/:id", requirePermission("order_item.update"), update);
 
 /**
  * @swagger
@@ -155,7 +156,11 @@ router.put("/orders-items/:id", update);
  *       404:
  *         description: Order item not found
  */
-router.delete("/orders-items/:id", remove);
+router.delete(
+  "/orders-items/:id",
+  requirePermission("order_item.delete"),
+  remove,
+);
 
 /**
  * @swagger
@@ -176,7 +181,11 @@ router.delete("/orders-items/:id", remove);
  *       404:
  *         description: No items found for this order
  */
-router.get("/orders-items/order/:id", orderItems);
+router.get(
+  "/orders-items/order/:id",
+  requirePermission("order_item.read"),
+  orderItems,
+);
 
 /**
  * @swagger
@@ -197,7 +206,11 @@ router.get("/orders-items/order/:id", orderItems);
  *       404:
  *         description: No order items found for this product
  */
-router.get("/orders-items/product/:id", productOrderItems);
+router.get(
+  "/orders-items/product/:id",
+  requirePermission("order_item.read"),
+  productOrderItems,
+);
 
 /**
  * @swagger
@@ -211,13 +224,16 @@ router.get("/orders-items/product/:id", productOrderItems);
  *         required: true
  *         schema:
  *           type: integer
- *         description: Order item ID
  *     responses:
  *       200:
  *         description: Order item with related order and product
  *       404:
  *         description: Order item not found
  */
-router.get("/orders-items/details/:id", orderItemDetails);
+router.get(
+  "/orders-items/details/:id",
+  requirePermission("order_item.read"),
+  orderItemDetails,
+);
 
 module.exports = router;

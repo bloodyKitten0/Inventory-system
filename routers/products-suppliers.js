@@ -3,6 +3,7 @@ const router = express.Router();
 
 const productsSupplierController = require("../controllers/products-suppliers");
 const authenticate = require("../middlewares/auth.js");
+const requirePermission = require("../middlewares/authorization.js");
 
 router.use(authenticate);
 
@@ -23,7 +24,11 @@ router.use(authenticate);
  *       200:
  *         description: List of product-supplier relationships
  */
-router.get("/", productsSupplierController.read);
+router.get(
+  "/",
+  requirePermission("product_supplier.read"),
+  productsSupplierController.read,
+);
 
 /**
  * @swagger
@@ -43,7 +48,11 @@ router.get("/", productsSupplierController.read);
  *       404:
  *         description: Relationship not found
  */
-router.get("/:id", productsSupplierController.readOne);
+router.get(
+  "/:id",
+  requirePermission("product_supplier.read"),
+  productsSupplierController.readOne,
+);
 
 /**
  * @swagger
@@ -79,7 +88,11 @@ router.get("/:id", productsSupplierController.readOne);
  *       201:
  *         description: Relationship created
  */
-router.post("/", productsSupplierController.create);
+router.post(
+  "/",
+  requirePermission("product_supplier.create"),
+  productsSupplierController.create,
+);
 
 /**
  * @swagger
@@ -114,7 +127,11 @@ router.post("/", productsSupplierController.create);
  *       404:
  *         description: Relationship not found
  */
-router.patch("/:id", productsSupplierController.update);
+router.patch(
+  "/:id",
+  requirePermission("product_supplier.update"),
+  productsSupplierController.update,
+);
 
 /**
  * @swagger
@@ -134,7 +151,11 @@ router.patch("/:id", productsSupplierController.update);
  *       404:
  *         description: Relationship not found
  */
-router.delete("/:id", productsSupplierController.remove);
+router.delete(
+  "/:id",
+  requirePermission("product_supplier.delete"),
+  productsSupplierController.remove,
+);
 
 /**
  * @swagger
@@ -156,6 +177,7 @@ router.delete("/:id", productsSupplierController.remove);
  */
 router.get(
   "/product/:id/suppliers",
+  requirePermission("product_supplier.read"),
   productsSupplierController.productsSupplier,
 );
 
@@ -173,12 +195,13 @@ router.get(
  *           type: integer
  *     responses:
  *       200:
- *         description: List of products supplied by the supplier
+ *         description: List of products supplied by a supplier
  *       404:
  *         description: No products found
  */
 router.get(
   "/supplier/:id/products",
+  requirePermission("product_supplier.read"),
   productsSupplierController.supplierProducts,
 );
 

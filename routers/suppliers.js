@@ -3,6 +3,7 @@ const router = express.Router();
 
 const suppliersController = require("../controllers/suppliers");
 const authenticate = require("../middlewares/auth.js");
+const requirePermission = require("../middlewares/authorization.js");
 
 router.use(authenticate);
 
@@ -23,7 +24,7 @@ router.use(authenticate);
  *       200:
  *         description: Suppliers retrieved successfully
  */
-router.get("/", suppliersController.read);
+router.get("/", requirePermission("supplier.read"), suppliersController.read);
 
 /**
  * @swagger
@@ -43,7 +44,11 @@ router.get("/", suppliersController.read);
  *       404:
  *         description: Supplier not found
  */
-router.get("/:id", suppliersController.readOne);
+router.get(
+  "/:id",
+  requirePermission("supplier.read"),
+  suppliersController.readOne,
+);
 
 /**
  * @swagger
@@ -75,7 +80,11 @@ router.get("/:id", suppliersController.readOne);
  *       201:
  *         description: Supplier created successfully
  */
-router.post("/", suppliersController.create);
+router.post(
+  "/",
+  requirePermission("supplier.create"),
+  suppliersController.create,
+);
 
 /**
  * @swagger
@@ -111,7 +120,11 @@ router.post("/", suppliersController.create);
  *       404:
  *         description: Supplier not found
  */
-router.patch("/:id", suppliersController.update);
+router.patch(
+  "/:id",
+  requirePermission("supplier.update"),
+  suppliersController.update,
+);
 
 /**
  * @swagger
@@ -131,6 +144,10 @@ router.patch("/:id", suppliersController.update);
  *       404:
  *         description: Supplier not found
  */
-router.delete("/:id", suppliersController.remove);
+router.delete(
+  "/:id",
+  requirePermission("supplier.delete"),
+  suppliersController.remove,
+);
 
 module.exports = router;
