@@ -3,6 +3,7 @@ const router = express.Router();
 
 const categoriesController = require("../controllers/categories");
 const authenticate = require("../middlewares/auth.js");
+const requirePermission = require("../middlewares/authorization.js");
 
 router.use(authenticate);
 
@@ -23,7 +24,7 @@ router.use(authenticate);
  *       200:
  *         description: Categories retrieved successfully
  */
-router.get("/", categoriesController.read);
+router.get("/", requirePermission("category.read"), categoriesController.read);
 
 /**
  * @swagger
@@ -43,7 +44,11 @@ router.get("/", categoriesController.read);
  *       404:
  *         description: Category not found
  */
-router.get("/:id", categoriesController.readOne);
+router.get(
+  "/:id",
+  requirePermission("category.read"),
+  categoriesController.readOne,
+);
 
 /**
  * @swagger
@@ -70,7 +75,11 @@ router.get("/:id", categoriesController.readOne);
  *       201:
  *         description: Category created successfully
  */
-router.post("/", categoriesController.create);
+router.post(
+  "/",
+  requirePermission("category.create"),
+  categoriesController.create,
+);
 
 /**
  * @swagger
@@ -103,7 +112,11 @@ router.post("/", categoriesController.create);
  *       404:
  *         description: Category not found
  */
-router.patch("/:id", categoriesController.update);
+router.patch(
+  "/:id",
+  requirePermission("category.update"),
+  categoriesController.update,
+);
 
 /**
  * @swagger
@@ -123,6 +136,10 @@ router.patch("/:id", categoriesController.update);
  *       404:
  *         description: Category not found
  */
-router.delete("/:id", categoriesController.remove);
+router.delete(
+  "/:id",
+  requirePermission("category.delete"),
+  categoriesController.remove,
+);
 
 module.exports = router;

@@ -3,6 +3,7 @@ const router = express.Router();
 
 const customersController = require("../controllers/customers");
 const authenticate = require("../middlewares/auth.js");
+const requirePermission = require("../middlewares/authorization.js");
 
 router.use(authenticate);
 
@@ -23,7 +24,7 @@ router.use(authenticate);
  *       200:
  *         description: Customers retrieved successfully
  */
-router.get("/", customersController.read);
+router.get("/", requirePermission("customer.read"), customersController.read);
 
 /**
  * @swagger
@@ -43,7 +44,11 @@ router.get("/", customersController.read);
  *       404:
  *         description: Customer not found
  */
-router.get("/:id", customersController.readOne);
+router.get(
+  "/:id",
+  requirePermission("customer.read"),
+  customersController.readOne,
+);
 
 /**
  * @swagger
@@ -74,7 +79,11 @@ router.get("/:id", customersController.readOne);
  *       201:
  *         description: Customer created successfully
  */
-router.post("/", customersController.create);
+router.post(
+  "/",
+  requirePermission("customer.create"),
+  customersController.create,
+);
 
 /**
  * @swagger
@@ -107,7 +116,11 @@ router.post("/", customersController.create);
  *       404:
  *         description: Customer not found
  */
-router.patch("/:id", customersController.update);
+router.patch(
+  "/:id",
+  requirePermission("customer.update"),
+  customersController.update,
+);
 
 /**
  * @swagger
@@ -127,6 +140,10 @@ router.patch("/:id", customersController.update);
  *       404:
  *         description: Customer not found
  */
-router.delete("/:id", customersController.remove);
+router.delete(
+  "/:id",
+  requirePermission("customer.delete"),
+  customersController.remove,
+);
 
 module.exports = router;

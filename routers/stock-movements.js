@@ -10,6 +10,7 @@ const {
 
 const router = express.Router();
 const authenticate = require("../middlewares/auth.js");
+const requirePermission = require("../middlewares/authorization.js");
 
 router.use(authenticate);
 
@@ -30,7 +31,7 @@ router.use(authenticate);
  *       200:
  *         description: Stock movements
  */
-router.get("/stock-movements", read);
+router.get("/stock-movements", requirePermission("stock_movement.read"), read);
 
 /**
  * @swagger
@@ -51,7 +52,11 @@ router.get("/stock-movements", read);
  *       404:
  *         description: Stock movement not found
  */
-router.get("/stock-movements/:id", readOne);
+router.get(
+  "/stock-movements/:id",
+  requirePermission("stock_movement.read"),
+  readOne,
+);
 
 /**
  * @swagger
@@ -72,7 +77,11 @@ router.get("/stock-movements/:id", readOne);
  *       404:
  *         description: No movements found
  */
-router.get("/stock-movements/product/:id", productMovements);
+router.get(
+  "/stock-movements/product/:id",
+  requirePermission("stock_movement.read"),
+  productMovements,
+);
 
 /**
  * @swagger
@@ -93,7 +102,11 @@ router.get("/stock-movements/product/:id", productMovements);
  *       404:
  *         description: No movements found
  */
-router.get("/stock-movements/warehouse/:id", warehouseMovements);
+router.get(
+  "/stock-movements/warehouse/:id",
+  requirePermission("stock_movement.read"),
+  warehouseMovements,
+);
 
 /**
  * @swagger
@@ -114,6 +127,10 @@ router.get("/stock-movements/warehouse/:id", warehouseMovements);
  *       404:
  *         description: No movements found
  */
-router.get("/stock-movements/product-details/:id", productWarehouseMovements);
+router.get(
+  "/stock-movements/product-details/:id",
+  requirePermission("stock_movement.read"),
+  productWarehouseMovements,
+);
 
 module.exports = router;

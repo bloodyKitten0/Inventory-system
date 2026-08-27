@@ -17,6 +17,7 @@ const {
 
 const router = express.Router();
 const authenticate = require("../middlewares/auth.js");
+const requirePermission = require("../middlewares/authorization.js");
 
 router.use(authenticate);
 
@@ -39,7 +40,7 @@ router.use(authenticate);
  *       404:
  *         description: No orders found
  */
-router.get(`/orders`, read);
+router.get(`/orders`, requirePermission("order.read"), read);
 
 /**
  * @swagger
@@ -72,7 +73,7 @@ router.get(`/orders`, read);
  *       201:
  *         description: Order created successfully
  */
-router.post(`/orders`, create);
+router.post(`/orders`, requirePermission("order.create"), create);
 
 /**
  * @swagger
@@ -93,7 +94,11 @@ router.post(`/orders`, create);
  *       404:
  *         description: No orders found
  */
-router.get(`/orders/customer/:id`, customerOrders);
+router.get(
+  `/orders/customer/:id`,
+  requirePermission("order.read"),
+  customerOrders,
+);
 
 /**
  * @swagger
@@ -114,7 +119,11 @@ router.get(`/orders/customer/:id`, customerOrders);
  *       404:
  *         description: No orders found
  */
-router.get(`/orders/warehouse/:id`, warehouseOrders);
+router.get(
+  `/orders/warehouse/:id`,
+  requirePermission("order.read"),
+  warehouseOrders,
+);
 
 /**
  * @swagger
@@ -135,7 +144,11 @@ router.get(`/orders/warehouse/:id`, warehouseOrders);
  *       404:
  *         description: Order not found
  */
-router.get(`/orders/:id/details`, orderDetails);
+router.get(
+  `/orders/:id/details`,
+  requirePermission("order.details"),
+  orderDetails,
+);
 
 /**
  * @swagger
@@ -156,7 +169,11 @@ router.get(`/orders/:id/details`, orderDetails);
  *       404:
  *         description: Order not found
  */
-router.get(`/orders/:id/total`, calculateOrderTotal);
+router.get(
+  `/orders/:id/total`,
+  requirePermission("order.total"),
+  calculateOrderTotal,
+);
 
 /**
  * @swagger
@@ -179,7 +196,11 @@ router.get(`/orders/:id/total`, calculateOrderTotal);
  *       404:
  *         description: Order not found
  */
-router.post(`/orders/:id/process`, processOrder);
+router.post(
+  `/orders/:id/process`,
+  requirePermission("order.process"),
+  processOrder,
+);
 
 /**
  * @swagger
@@ -212,7 +233,11 @@ router.post(`/orders/:id/process`, processOrder);
  *       404:
  *         description: Order not found
  */
-router.patch(`/orders/:id/status`, updateStatus);
+router.patch(
+  `/orders/:id/status`,
+  requirePermission("order.update_status"),
+  updateStatus,
+);
 
 /**
  * @swagger
@@ -233,7 +258,11 @@ router.patch(`/orders/:id/status`, updateStatus);
  *       404:
  *         description: Order not found or cannot be cancelled
  */
-router.patch(`/orders/:id/cancel`, cancelOrder);
+router.patch(
+  `/orders/:id/cancel`,
+  requirePermission("order.cancel"),
+  cancelOrder,
+);
 
 /**
  * @swagger
@@ -254,7 +283,7 @@ router.patch(`/orders/:id/cancel`, cancelOrder);
  *       404:
  *         description: Order not found
  */
-router.get(`/orders/:id`, readOne);
+router.get(`/orders/:id`, requirePermission("order.read"), readOne);
 
 /**
  * @swagger
@@ -295,7 +324,7 @@ router.get(`/orders/:id`, readOne);
  *       404:
  *         description: Order not found
  */
-router.put(`/orders/:id`, update);
+router.put(`/orders/:id`, requirePermission("order.update"), update);
 
 /**
  * @swagger
@@ -316,6 +345,6 @@ router.put(`/orders/:id`, update);
  *       404:
  *         description: Order not found
  */
-router.delete(`/orders/:id`, remove);
+router.delete(`/orders/:id`, requirePermission("order.delete"), remove);
 
 module.exports = router;
