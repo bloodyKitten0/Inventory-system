@@ -8,6 +8,14 @@ const {
   logout,
 } = require("../security/auth.js");
 
+const validate = require("../middlewares/validate.js");
+
+const {
+  register: registerValidator,
+  login: loginValidator,
+  verifyAccount: verifyAccountValidator,
+} = require("../validators/auth.js");
+
 /**
  * @swagger
  * /auth/register:
@@ -30,23 +38,28 @@ const {
  *             properties:
  *               customer_name:
  *                 type: string
+ *                 example: John Doe
  *               username:
  *                 type: string
+ *                 example: johndoe123
  *               email:
  *                 type: string
+ *                 example: user@example.com
  *               password:
  *                 type: string
+ *                 example: password123
  *               shipping_address:
  *                 type: string
+ *                 example: 123 Main Street
  *     responses:
  *       201:
  *         description: Account created successfully
  *       400:
- *         description: Missing required field
+ *         description: Invalid input
  *       409:
  *         description: Username or email already exists
  */
-router.post("/register", register);
+router.post("/register", validate(registerValidator), register);
 
 /**
  * @swagger
@@ -68,7 +81,7 @@ router.post("/register", register);
  *       400:
  *         description: Invalid, missing, or expired verification token
  */
-router.get("/verify", verifyAccount);
+router.get("/verify", validate(verifyAccountValidator), verifyAccount);
 
 /**
  * @swagger
@@ -97,11 +110,13 @@ router.get("/verify", verifyAccount);
  *       200:
  *         description: Account logged in successfully
  *       400:
- *         description: Missing email or password
+ *         description: Invalid email or password input
  *       401:
  *         description: Incorrect email or password
+ *       403:
+ *         description: Account is not active
  */
-router.post("/login", login);
+router.post("/login", validate(loginValidator), login);
 
 /**
  * @swagger

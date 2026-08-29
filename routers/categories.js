@@ -5,6 +5,14 @@ const categoriesController = require("../controllers/categories");
 const authenticate = require("../middlewares/auth.js");
 const requirePermission = require("../middlewares/authorization.js");
 
+const validate = require("../middlewares/validate.js");
+
+const {
+  create: createValidator,
+  update: updateValidator,
+  id: idValidator,
+} = require("../validators/categories.js");
+
 router.use(authenticate);
 
 /**
@@ -46,6 +54,7 @@ router.get("/", requirePermission("category.read"), categoriesController.read);
  */
 router.get(
   "/:id",
+  validate(idValidator),
   requirePermission("category.read"),
   categoriesController.readOne,
 );
@@ -77,6 +86,7 @@ router.get(
  */
 router.post(
   "/",
+  validate(createValidator),
   requirePermission("category.create"),
   categoriesController.create,
 );
@@ -114,6 +124,7 @@ router.post(
  */
 router.patch(
   "/:id",
+  validate(updateValidator),
   requirePermission("category.update"),
   categoriesController.update,
 );
@@ -138,6 +149,7 @@ router.patch(
  */
 router.delete(
   "/:id",
+  validate(idValidator),
   requirePermission("category.delete"),
   categoriesController.remove,
 );

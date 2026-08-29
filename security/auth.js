@@ -3,6 +3,7 @@ const {
   generateVerificationToken,
   hashVerificationToken,
 } = require("../services/verification-token.js");
+
 const test = require("../services/try-catch.js");
 const sendVerificationEmail = require("../services/email.js");
 const {
@@ -10,45 +11,11 @@ const {
   verifyPassword,
 } = require("../services/password-hashing.js");
 const { createSession, deleteSession } = require("../services/sessions.js");
-
 const CUSTOMER_ROLE_ID = Number(process.env.CUSTOMER_ID);
 
 const register = test(async (req, res) => {
   const { customer_name, username, email, password, shipping_address } =
     req.body;
-
-  if (typeof customer_name !== "string" || customer_name.trim().length < 2) {
-    return res.status(400).json({ message: "Invalid customer name" });
-  }
-
-  if (
-    typeof username !== "string" ||
-    username.trim().length < 3 ||
-    username.trim().length > 30 ||
-    !/^[a-zA-Z0-9_]+$/.test(username.trim())
-  ) {
-    return res.status(400).json({ message: "Invalid username" });
-  }
-
-  if (
-    typeof email !== "string" ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
-  ) {
-    return res.status(400).json({ message: "Invalid email" });
-  }
-
-  if (typeof password !== "string" || password.length < 8) {
-    return res
-      .status(400)
-      .json({ message: "Password must be at least 8 characters" });
-  }
-
-  if (
-    typeof shipping_address !== "string" ||
-    shipping_address.trim().length < 5
-  ) {
-    return res.status(400).json({ message: "Invalid shipping address" });
-  }
 
   const cleanUsername = username.trim();
   const cleanEmail = email.trim();
@@ -108,6 +75,7 @@ const register = test(async (req, res) => {
     );
 
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
     const rawToken = generateVerificationToken();
     const hashedToken = hashVerificationToken(rawToken);
 
@@ -138,12 +106,6 @@ const register = test(async (req, res) => {
 
 const verifyAccount = test(async (req, res) => {
   const token = req.query.token;
-
-  if (typeof token !== "string" || token.length === 0) {
-    return res.status(400).json({
-      message: "Verification token is required",
-    });
-  }
 
   const hashedToken = hashVerificationToken(token);
 
@@ -209,19 +171,6 @@ const verifyAccount = test(async (req, res) => {
 
 const login = test(async (req, res) => {
   const { email, password } = req.body;
-
-  if (
-    typeof email !== "string" ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
-  ) {
-    return res.status(400).json({ message: "Invalid email" });
-  }
-
-  if (typeof password !== "string" || password.length === 0) {
-    return res.status(400).json({
-      message: "Password is required",
-    });
-  }
 
   const account = await pg.query(
     `SELECT *

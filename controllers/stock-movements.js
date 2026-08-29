@@ -1,5 +1,3 @@
-const pg = require(`../config/db.js`);
-const test = require(`../services/try-catch.js`);
 const readAll = require(`../services/read-all.js`);
 const readId = require(`../services/read-id.js`);
 const { one, two } = require(`../services/read-relation.js`);

@@ -4,6 +4,17 @@ const router = express.Router();
 const rolesController = require("../controllers/roles.js");
 const authenticate = require("../middlewares/auth.js");
 const requirePermission = require("../middlewares/authorization.js");
+const validate = require("../middlewares/validate.js");
+
+const {
+  roleId: roleIdValidator,
+  createRole: createRoleValidator,
+  grantPermission: grantPermissionValidator,
+  revokePermission: revokePermissionValidator,
+  accountId: accountIdValidator,
+  grantRole: grantRoleValidator,
+  revokeRole: revokeRoleValidator,
+} = require("../validators/roles.js");
 
 router.use(authenticate);
 
@@ -43,6 +54,7 @@ router.get("/", requirePermission("role.read"), rolesController.readRoles);
  *             properties:
  *               name:
  *                 type: string
+ *                 minLength: 2
  *                 example: Ordering Manager
  *     responses:
  *       201:
@@ -52,7 +64,12 @@ router.get("/", requirePermission("role.read"), rolesController.readRoles);
  *       409:
  *         description: Role already exists
  */
-router.post("/", requirePermission("role.create"), rolesController.createRole);
+router.post(
+  "/",
+  validate(createRoleValidator),
+  requirePermission("role.create"),
+  rolesController.createRole,
+);
 
 /**
  * @swagger
@@ -66,14 +83,18 @@ router.post("/", requirePermission("role.create"), rolesController.createRole);
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
  *     responses:
  *       200:
  *         description: Account roles retrieved successfully
+ *       400:
+ *         description: Invalid account ID
  *       404:
  *         description: Account not found
  */
 router.get(
   "/accounts/:accountId",
+  validate(accountIdValidator),
   requirePermission("account.role.read"),
   rolesController.readAccountRoles,
 );
@@ -90,6 +111,7 @@ router.get(
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
  *     requestBody:
  *       required: true
  *       content:
@@ -101,6 +123,7 @@ router.get(
  *             properties:
  *               roleId:
  *                 type: integer
+ *                 minimum: 1
  *                 example: 3
  *     responses:
  *       201:
@@ -114,6 +137,7 @@ router.get(
  */
 router.post(
   "/accounts/:accountId",
+  validate(grantRoleValidator),
   requirePermission("account.role.grant"),
   rolesController.grantRole,
 );
@@ -130,11 +154,13 @@ router.post(
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
  *       - in: path
  *         name: roleId
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
  *     responses:
  *       200:
  *         description: Role revoked successfully
@@ -147,6 +173,7 @@ router.post(
  */
 router.delete(
   "/accounts/:accountId/:roleId",
+  validate(revokeRoleValidator),
   requirePermission("account.role.revoke"),
   rolesController.revokeRole,
 );
@@ -163,6 +190,7 @@ router.delete(
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
  *     responses:
  *       200:
  *         description: Permissions retrieved successfully
@@ -173,6 +201,7 @@ router.delete(
  */
 router.get(
   "/:id/permissions",
+  validate(roleIdValidator),
   requirePermission("role.permission.read"),
   rolesController.readRolePermissions,
 );
@@ -189,6 +218,7 @@ router.get(
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
  *     requestBody:
  *       required: true
  *       content:
@@ -200,6 +230,7 @@ router.get(
  *             properties:
  *               permissionId:
  *                 type: integer
+ *                 minimum: 1
  *                 example: 5
  *     responses:
  *       201:
@@ -213,6 +244,7 @@ router.get(
  */
 router.post(
   "/:id/permissions",
+  validate(grantPermissionValidator),
   requirePermission("role.permission.grant"),
   rolesController.grantPermission,
 );
@@ -229,21 +261,24 @@ router.post(
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
  *       - in: path
  *         name: permissionId
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
  *     responses:
  *       200:
  *         description: Permission revoked successfully
  *       400:
  *         description: Invalid role or permission ID
- *       -404:
+ *       404:
  *         description: Role-permission assignment not found
  */
 router.delete(
   "/:id/permissions/:permissionId",
+  validate(revokePermissionValidator),
   requirePermission("role.permission.revoke"),
   rolesController.revokePermission,
 );
@@ -260,6 +295,7 @@ router.delete(
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
  *     responses:
  *       200:
  *         description: Role retrieved successfully
@@ -268,7 +304,12 @@ router.delete(
  *       404:
  *         description: Role not found
  */
-router.get("/:id", requirePermission("role.read"), rolesController.readRole);
+router.get(
+  "/:id",
+  validate(roleIdValidator),
+  requirePermission("role.read"),
+  rolesController.readRole,
+);
 
 /**
  * @swagger
@@ -282,6 +323,7 @@ router.get("/:id", requirePermission("role.read"), rolesController.readRole);
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
  *     responses:
  *       200:
  *         description: Role deleted successfully
@@ -292,6 +334,7 @@ router.get("/:id", requirePermission("role.read"), rolesController.readRole);
  */
 router.delete(
   "/:id",
+  validate(roleIdValidator),
   requirePermission("role.delete"),
   rolesController.removeRole,
 );

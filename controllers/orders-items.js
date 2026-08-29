@@ -4,33 +4,14 @@ const checkRow = require("../services/rows-check.js");
 const readAll = require("../services/read-all.js");
 const readId = require("../services/read-id.js");
 const deleteId = require("../services/remove.js");
-const { one, two } = require(`../services/read-relation.js`);
-const read = readAll(`orders_items`);
+const { one, two } = require("../services/read-relation.js");
+
+const read = readAll("orders_items");
 
 const readOne = readId("orders_items", "item");
 
 const create = test(async (req, res) => {
   const { oid, pid, quan, price } = req.body;
-  if (!Number.isInteger(oid) || oid <= 0) {
-    return res.status(400).json({
-      message: "Invalid order ID",
-    });
-  }
-  if (!Number.isInteger(pid) || pid <= 0) {
-    return res.status(400).json({
-      message: "Invalid product ID",
-    });
-  }
-  if (!Number.isInteger(quan) || quan <= 0) {
-    return res.status(400).json({
-      message: "Invalid quantity",
-    });
-  }
-  if (typeof price !== "number" || !Number.isFinite(price) || price < 0) {
-    return res.status(400).json({
-      message: "Invalid price",
-    });
-  }
 
   const result = await pg.query(
     `
@@ -41,31 +22,12 @@ const create = test(async (req, res) => {
     `,
     [oid, pid, quan, price],
   );
+
   res.status(201).json(result.rows[0]);
 });
 
 const update = test(async (req, res) => {
   const { oid, pid, quan, price } = req.body;
-  if (!Number.isInteger(oid) || oid <= 0) {
-    return res.status(400).json({
-      message: "Invalid order ID",
-    });
-  }
-  if (!Number.isInteger(pid) || pid <= 0) {
-    return res.status(400).json({
-      message: "Invalid product ID",
-    });
-  }
-  if (!Number.isInteger(quan) || quan <= 0) {
-    return res.status(400).json({
-      message: "Invalid quantity",
-    });
-  }
-  if (typeof price !== "number" || !Number.isFinite(price) || price < 0) {
-    return res.status(400).json({
-      message: "Invalid price",
-    });
-  }
 
   const result = await pg.query(
     `
@@ -80,33 +42,37 @@ const update = test(async (req, res) => {
     `,
     [req.params.id, oid, pid, quan, price],
   );
+
   if (!checkRow(result)) {
-    return res.status(404).json("item not found");
+    return res.status(404).json({
+      message: "Item not found",
+    });
   }
+
   res.status(200).json(result.rows[0]);
 });
 
-const remove = deleteId(`orders_items`, "item");
+const remove = deleteId("orders_items", "item");
 
-const orderItems = one(`orders_items`, `orders`, `id`, `order_id`, `order_id`);
+const orderItems = one("orders_items", "orders", "id", "order_id", "order_id");
 
 const productOrderItems = one(
-  `orders_items`,
-  `products`,
-  `id`,
-  `product_id`,
-  `product_id`,
+  "orders_items",
+  "products",
+  "id",
+  "product_id",
+  "product_id",
 );
 
 const orderItemDetails = two(
-  `orders_items`,
-  `orders`,
-  `order_id`,
-  `id`,
-  `products`,
-  `product_id`,
-  `id`,
-  `id`,
+  "orders_items",
+  "orders",
+  "order_id",
+  "id",
+  "products",
+  "product_id",
+  "id",
+  "id",
 );
 
 module.exports = {

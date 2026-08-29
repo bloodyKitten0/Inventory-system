@@ -13,27 +13,6 @@ const readOne = readId(`products_suppliers`, `relation`);
 const create = test(async (req, res) => {
   const { pid, sid, spr, sku } = req.body;
 
-  if (!Number.isInteger(pid) || pid <= 0) {
-    return res.status(400).json({
-      message: "Invalid product ID",
-    });
-  }
-  if (!Number.isInteger(sid) || sid <= 0) {
-    return res.status(400).json({
-      message: "Invalid supplier ID",
-    });
-  }
-  if (typeof spr !== "number" || !Number.isFinite(spr) || spr < 0) {
-    return res.status(400).json({
-      message: "Invalid supplier price",
-    });
-  }
-  if (typeof sku !== "string" || sku.trim().length === 0) {
-    return res.status(400).json({
-      message: "Invalid supplier SKU",
-    });
-  }
-
   const result = await pg.query(
     `
     INSERT INTO products_suppliers
@@ -44,31 +23,12 @@ const create = test(async (req, res) => {
     `,
     [pid, sid, spr, sku.trim()],
   );
+
   res.status(201).json(result.rows[0]);
 });
 
 const update = test(async (req, res) => {
   const { pid, sid, spr, sku } = req.body;
-  if (!Number.isInteger(pid) || pid <= 0) {
-    return res.status(400).json({
-      message: "Invalid product ID",
-    });
-  }
-  if (!Number.isInteger(sid) || sid <= 0) {
-    return res.status(400).json({
-      message: "Invalid supplier ID",
-    });
-  }
-  if (typeof spr !== "number" || !Number.isFinite(spr) || spr < 0) {
-    return res.status(400).json({
-      message: "Invalid supplier price",
-    });
-  }
-  if (typeof sku !== "string" || sku.trim().length === 0) {
-    return res.status(400).json({
-      message: "Invalid supplier SKU",
-    });
-  }
 
   const result = await pg.query(
     `
@@ -83,9 +43,11 @@ const update = test(async (req, res) => {
     `,
     [req.params.id, pid, sid, spr, sku.trim()],
   );
+
   if (!checkRow(result)) {
     return res.status(404).json("relation not found");
   }
+
   res.status(200).json(result.rows[0]);
 });
 

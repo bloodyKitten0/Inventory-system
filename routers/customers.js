@@ -4,6 +4,13 @@ const router = express.Router();
 const customersController = require("../controllers/customers");
 const authenticate = require("../middlewares/auth.js");
 const requirePermission = require("../middlewares/authorization.js");
+const validate = require("../middlewares/validate.js");
+
+const {
+  create: createValidator,
+  update: updateValidator,
+  id: idValidator,
+} = require("../validators/customers.js");
 
 router.use(authenticate);
 
@@ -38,14 +45,18 @@ router.get("/", requirePermission("customer.read"), customersController.read);
  *         required: true
  *         schema:
  *           type: integer
+ *         description: Customer ID
  *     responses:
  *       200:
  *         description: Customer found
+ *       400:
+ *         description: Invalid customer ID
  *       404:
  *         description: Customer not found
  */
 router.get(
   "/:id",
+  validate(idValidator),
   requirePermission("customer.read"),
   customersController.readOne,
 );
@@ -69,6 +80,7 @@ router.get(
  *             properties:
  *               customer_name:
  *                 type: string
+ *                 example: John Doe
  *               customer_email:
  *                 type: string
  *                 example: customer@example.com
@@ -78,9 +90,12 @@ router.get(
  *     responses:
  *       201:
  *         description: Customer created successfully
+ *       400:
+ *         description: Invalid customer data
  */
 router.post(
   "/",
+  validate(createValidator),
   requirePermission("customer.create"),
   customersController.create,
 );
@@ -97,13 +112,21 @@ router.post(
  *         required: true
  *         schema:
  *           type: integer
+ *         description: Customer ID
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - customer_name
+ *               - customer_email
+ *               - shipping_address
  *             properties:
+ *               customer_name:
+ *                 type: string
+ *                 example: John Doe
  *               customer_email:
  *                 type: string
  *                 example: customer@example.com
@@ -113,11 +136,14 @@ router.post(
  *     responses:
  *       200:
  *         description: Customer updated successfully
+ *       400:
+ *         description: Invalid customer data
  *       404:
  *         description: Customer not found
  */
 router.patch(
   "/:id",
+  validate(updateValidator),
   requirePermission("customer.update"),
   customersController.update,
 );
@@ -134,14 +160,18 @@ router.patch(
  *         required: true
  *         schema:
  *           type: integer
+ *         description: Customer ID
  *     responses:
  *       200:
  *         description: Customer deleted successfully
+ *       400:
+ *         description: Invalid customer ID
  *       404:
  *         description: Customer not found
  */
 router.delete(
   "/:id",
+  validate(idValidator),
   requirePermission("customer.delete"),
   customersController.remove,
 );

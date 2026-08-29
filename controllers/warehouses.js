@@ -12,18 +12,6 @@ const readOne = readId("warehouses", "warehouse");
 const create = test(async (req, res) => {
   const { name, location } = req.body;
 
-  if (typeof name !== "string" || name.trim().length < 2) {
-    return res.status(400).json({
-      message: "Invalid warehouse name",
-    });
-  }
-
-  if (typeof location !== "string" || location.trim().length < 2) {
-    return res.status(400).json({
-      message: "Invalid warehouse location",
-    });
-  }
-
   const result = await pg.query(
     `
     INSERT INTO warehouses
@@ -41,26 +29,6 @@ const create = test(async (req, res) => {
 const update = test(async (req, res) => {
   const { name, location } = req.body;
 
-  const warehouseId = Number(req.params.id);
-
-  if (!Number.isInteger(warehouseId) || warehouseId <= 0) {
-    return res.status(400).json({
-      message: "Invalid warehouse ID",
-    });
-  }
-
-  if (typeof name !== "string" || name.trim().length < 2) {
-    return res.status(400).json({
-      message: "Invalid warehouse name",
-    });
-  }
-
-  if (typeof location !== "string" || location.trim().length < 2) {
-    return res.status(400).json({
-      message: "Invalid warehouse location",
-    });
-  }
-
   const result = await pg.query(
     `
     UPDATE warehouses
@@ -71,7 +39,7 @@ const update = test(async (req, res) => {
     WHERE id = $1
     RETURNING *
     `,
-    [warehouseId, name.trim(), location.trim()],
+    [req.params.id, name.trim(), location.trim()],
   );
 
   if (!checkRow(result)) {

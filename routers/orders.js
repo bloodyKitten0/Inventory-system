@@ -1,4 +1,4 @@
-const express = require(`express`);
+const express = require("express");
 
 const {
   read,
@@ -13,11 +13,19 @@ const {
   orderDetails,
   calculateOrderTotal,
   processOrder,
-} = require(`../controllers/orders`);
+} = require("../controllers/orders");
 
 const router = express.Router();
+
 const authenticate = require("../middlewares/auth.js");
 const requirePermission = require("../middlewares/authorization.js");
+const validate = require("../middlewares/validate.js");
+
+const {
+  create: createValidator,
+  id: idValidator,
+  customerId: customerIdValidator,
+} = require("../validators/orders.js");
 
 router.use(authenticate);
 
@@ -40,7 +48,7 @@ router.use(authenticate);
  *       404:
  *         description: No orders found
  */
-router.get(`/orders`, requirePermission("order.read"), read);
+router.get("/", requirePermission("order.read"), read);
 
 /**
  * @swagger
@@ -55,25 +63,29 @@ router.get(`/orders`, requirePermission("order.read"), read);
  *           schema:
  *             type: object
  *             required:
- *               - cid
- *               - wid
- *               - status
+ *               - customer_id
+ *               - warehouse_id
  *             properties:
- *               cid:
+ *               customer_id:
  *                 type: integer
  *                 description: Customer ID
- *               wid:
+ *                 example: 1
+ *               warehouse_id:
  *                 type: integer
  *                 description: Warehouse ID
- *               status:
- *                 type: string
- *                 description: Initial order status
- *                 example: pending
+ *                 example: 1
  *     responses:
  *       201:
  *         description: Order created successfully
+ *       400:
+ *         description: Invalid input
  */
-router.post(`/orders`, requirePermission("order.create"), create);
+router.post(
+  "/",
+  validate(createValidator),
+  requirePermission("order.create"),
+  create,
+);
 
 /**
  * @swagger
@@ -95,7 +107,8 @@ router.post(`/orders`, requirePermission("order.create"), create);
  *         description: No orders found
  */
 router.get(
-  `/orders/customer/:id`,
+  "/customer/:id",
+  validate(customerIdValidator),
   requirePermission("order.read"),
   customerOrders,
 );
@@ -120,7 +133,8 @@ router.get(
  *         description: No orders found
  */
 router.get(
-  `/orders/warehouse/:id`,
+  "/warehouse/:id",
+  validate(idValidator),
   requirePermission("order.read"),
   warehouseOrders,
 );
@@ -145,7 +159,8 @@ router.get(
  *         description: Order not found
  */
 router.get(
-  `/orders/:id/details`,
+  "/:id/details",
+  validate(idValidator),
   requirePermission("order.details"),
   orderDetails,
 );
@@ -170,7 +185,8 @@ router.get(
  *         description: Order not found
  */
 router.get(
-  `/orders/:id/total`,
+  "/:id/total",
+  validate(idValidator),
   requirePermission("order.total"),
   calculateOrderTotal,
 );
@@ -197,7 +213,8 @@ router.get(
  *         description: Order not found
  */
 router.post(
-  `/orders/:id/process`,
+  "/:id/process",
+  validate(idValidator),
   requirePermission("order.process"),
   processOrder,
 );
@@ -214,7 +231,6 @@ router.post(
  *         required: true
  *         schema:
  *           type: integer
- *         description: Order ID
  *     requestBody:
  *       required: true
  *       content:
@@ -234,7 +250,8 @@ router.post(
  *         description: Order not found
  */
 router.patch(
-  `/orders/:id/status`,
+  "/:id/status",
+  validate(idValidator),
   requirePermission("order.update_status"),
   updateStatus,
 );
@@ -251,7 +268,6 @@ router.patch(
  *         required: true
  *         schema:
  *           type: integer
- *         description: Order ID
  *     responses:
  *       200:
  *         description: Order cancelled successfully
@@ -259,7 +275,8 @@ router.patch(
  *         description: Order not found or cannot be cancelled
  */
 router.patch(
-  `/orders/:id/cancel`,
+  "/:id/cancel",
+  validate(idValidator),
   requirePermission("order.cancel"),
   cancelOrder,
 );
@@ -276,14 +293,18 @@ router.patch(
  *         required: true
  *         schema:
  *           type: integer
- *         description: Order ID
  *     responses:
  *       200:
  *         description: Order retrieved successfully
  *       404:
  *         description: Order not found
  */
-router.get(`/orders/:id`, requirePermission("order.read"), readOne);
+router.get(
+  "/:id",
+  validate(idValidator),
+  requirePermission("order.read"),
+  readOne,
+);
 
 /**
  * @swagger
@@ -297,7 +318,6 @@ router.get(`/orders/:id`, requirePermission("order.read"), readOne);
  *         required: true
  *         schema:
  *           type: integer
- *         description: Order ID
  *     requestBody:
  *       required: true
  *       content:
@@ -305,26 +325,26 @@ router.get(`/orders/:id`, requirePermission("order.read"), readOne);
  *           schema:
  *             type: object
  *             required:
- *               - cid
- *               - wid
- *               - status
+ *               - customer_id
+ *               - warehouse_id
  *             properties:
- *               cid:
+ *               customer_id:
  *                 type: integer
- *                 description: Customer ID
- *               wid:
+ *               warehouse_id:
  *                 type: integer
- *                 description: Warehouse ID
- *               status:
- *                 type: string
- *                 description: Order status
  *     responses:
  *       200:
  *         description: Order updated successfully
  *       404:
  *         description: Order not found
  */
-router.put(`/orders/:id`, requirePermission("order.update"), update);
+router.put(
+  "/:id",
+  validate(idValidator),
+  validate(createValidator),
+  requirePermission("order.update"),
+  update,
+);
 
 /**
  * @swagger
@@ -338,13 +358,17 @@ router.put(`/orders/:id`, requirePermission("order.update"), update);
  *         required: true
  *         schema:
  *           type: integer
- *         description: Order ID
  *     responses:
  *       200:
  *         description: Order deleted successfully
  *       404:
  *         description: Order not found
  */
-router.delete(`/orders/:id`, requirePermission("order.delete"), remove);
+router.delete(
+  "/:id",
+  validate(idValidator),
+  requirePermission("order.delete"),
+  remove,
+);
 
 module.exports = router;

@@ -4,6 +4,13 @@ const router = express.Router();
 const warehousesController = require("../controllers/warehouses");
 const authenticate = require("../middlewares/auth.js");
 const requirePermission = require("../middlewares/authorization.js");
+const validate = require("../middlewares/validate.js");
+
+const {
+  create: createValidator,
+  update: updateValidator,
+  id: idValidator,
+} = require("../validators/warehouses.js");
 
 router.use(authenticate);
 
@@ -23,6 +30,8 @@ router.use(authenticate);
  *     responses:
  *       200:
  *         description: Warehouses retrieved successfully
+ *       404:
+ *         description: No warehouses found
  */
 router.get("/", requirePermission("warehouse.read"), warehousesController.read);
 
@@ -38,14 +47,19 @@ router.get("/", requirePermission("warehouse.read"), warehousesController.read);
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
+ *         description: Warehouse ID
  *     responses:
  *       200:
  *         description: Warehouse found
+ *       400:
+ *         description: Invalid warehouse ID
  *       404:
  *         description: Warehouse not found
  */
 router.get(
   "/:id",
+  validate(idValidator),
   requirePermission("warehouse.read"),
   warehousesController.readOne,
 );
@@ -68,16 +82,21 @@ router.get(
  *             properties:
  *               name:
  *                 type: string
+ *                 minLength: 2
  *                 example: Main Warehouse
  *               location:
  *                 type: string
+ *                 minLength: 2
  *                 example: Riyadh
  *     responses:
  *       201:
  *         description: Warehouse created successfully
+ *       400:
+ *         description: Invalid warehouse data
  */
 router.post(
   "/",
+  validate(createValidator),
   requirePermission("warehouse.create"),
   warehousesController.create,
 );
@@ -94,27 +113,37 @@ router.post(
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
+ *         description: Warehouse ID
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - name
+ *               - location
  *             properties:
  *               name:
  *                 type: string
+ *                 minLength: 2
  *                 example: Main Warehouse
  *               location:
  *                 type: string
+ *                 minLength: 2
  *                 example: Jeddah
  *     responses:
  *       200:
  *         description: Warehouse updated successfully
+ *       400:
+ *         description: Invalid warehouse data
  *       404:
  *         description: Warehouse not found
  */
 router.patch(
   "/:id",
+  validate(updateValidator),
   requirePermission("warehouse.update"),
   warehousesController.update,
 );
@@ -131,14 +160,19 @@ router.patch(
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
+ *         description: Warehouse ID
  *     responses:
  *       200:
  *         description: Warehouse deleted successfully
+ *       400:
+ *         description: Invalid warehouse ID
  *       404:
  *         description: Warehouse not found
  */
 router.delete(
   "/:id",
+  validate(idValidator),
   requirePermission("warehouse.delete"),
   warehousesController.remove,
 );
