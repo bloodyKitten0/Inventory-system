@@ -1,28 +1,16 @@
 const pg = require("../config/db.js");
 const test = require("../services/try-catch.js");
 const checkRow = require("../services/rows-check.js");
-const readAll = require(`../services/read-all.js`);
+const readAll = require("../services/read-all.js");
 const readId = require("../services/read-id.js");
 const deleteId = require("../services/remove.js");
 
-const read = readAll(`categories`);
+const read = readAll("categories");
 
 const readOne = readId("categories", "Category");
 
 const create = test(async (req, res) => {
   const { name, desc } = req.body;
-
-  if (typeof name !== "string" || name.trim().length < 2) {
-    return res.status(400).json({
-      message: "Invalid category name",
-    });
-  }
-
-  if (typeof desc !== "string" || desc.trim().length < 2) {
-    return res.status(400).json({
-      message: "Invalid category description",
-    });
-  }
 
   const result = await pg.query(
     `
@@ -39,18 +27,6 @@ const create = test(async (req, res) => {
 const update = test(async (req, res) => {
   const { name, desc } = req.body;
 
-  if (typeof name !== "string" || name.trim().length < 2) {
-    return res.status(400).json({
-      message: "Invalid category name",
-    });
-  }
-
-  if (typeof desc !== "string" || desc.trim().length < 2) {
-    return res.status(400).json({
-      message: "Invalid category description",
-    });
-  }
-
   const result = await pg.query(
     `
     UPDATE categories
@@ -65,13 +41,15 @@ const update = test(async (req, res) => {
   );
 
   if (!checkRow(result)) {
-    return res.status(404).json("category not found");
+    return res.status(404).json({
+      message: "Category not found",
+    });
   }
 
   res.status(200).json(result.rows[0]);
 });
 
-const remove = deleteId(`categories`, "Category");
+const remove = deleteId("categories", "Category");
 
 module.exports = {
   read,

@@ -1,7 +1,7 @@
 const pg = require("../config/db.js");
 const test = require("../services/try-catch.js");
 const checkRow = require("../services/rows-check.js");
-const readAll = require(`../services/read-all.js`);
+const readAll = require("../services/read-all.js");
 const readId = require("../services/read-id.js");
 const deleteId = require("../services/remove.js");
 
@@ -11,30 +11,6 @@ const readOne = readId("products", "Product");
 
 const create = test(async (req, res) => {
   const { name, cata, desc, price } = req.body;
-
-  if (typeof name !== "string" || name.trim().length < 2) {
-    return res.status(400).json({
-      message: "Invalid product name",
-    });
-  }
-
-  if (!Number.isInteger(cata) || cata <= 0) {
-    return res.status(400).json({
-      message: "Invalid category ID",
-    });
-  }
-
-  if (typeof desc !== "string" || desc.trim().length < 2) {
-    return res.status(400).json({
-      message: "Invalid product description",
-    });
-  }
-
-  if (typeof price !== "number" || !Number.isFinite(price) || price < 0) {
-    return res.status(400).json({
-      message: "Invalid product price",
-    });
-  }
 
   const result = await pg.query(
     `
@@ -50,30 +26,6 @@ const create = test(async (req, res) => {
 
 const update = test(async (req, res) => {
   const { name, cata, desc, price } = req.body;
-
-  if (typeof name !== "string" || name.trim().length < 2) {
-    return res.status(400).json({
-      message: "Invalid product name",
-    });
-  }
-
-  if (!Number.isInteger(cata) || cata <= 0) {
-    return res.status(400).json({
-      message: "Invalid category ID",
-    });
-  }
-
-  if (typeof desc !== "string" || desc.trim().length < 2) {
-    return res.status(400).json({
-      message: "Invalid product description",
-    });
-  }
-
-  if (typeof price !== "number" || !Number.isFinite(price) || price < 0) {
-    return res.status(400).json({
-      message: "Invalid product price",
-    });
-  }
 
   const result = await pg.query(
     `

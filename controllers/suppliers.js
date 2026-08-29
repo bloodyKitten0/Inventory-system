@@ -1,7 +1,7 @@
 const pg = require("../config/db.js");
 const test = require("../services/try-catch.js");
 const checkRow = require("../services/rows-check.js");
-const readAll = require(`../services/read-all.js`);
+const readAll = require("../services/read-all.js");
 const readId = require("../services/read-id.js");
 const deleteId = require("../services/remove.js");
 
@@ -11,25 +11,6 @@ const readOne = readId("suppliers", "Supplier");
 
 const create = test(async (req, res) => {
   const { supplier_name, supplier_email, supplier_phone } = req.body;
-
-  if (typeof supplier_name !== "string" || supplier_name.trim().length < 2) {
-    return res.status(400).json({
-      message: "Invalid supplier name",
-    });
-  }
-  if (
-    typeof supplier_email !== "string" ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supplier_email)
-  ) {
-    return res.status(400).json({
-      message: "Invalid supplier email",
-    });
-  }
-  if (typeof supplier_phone !== "string" || supplier_phone.trim().length < 7) {
-    return res.status(400).json({
-      message: "Invalid supplier phone",
-    });
-  }
 
   const result = await pg.query(
     `
@@ -47,25 +28,6 @@ const create = test(async (req, res) => {
 
 const update = test(async (req, res) => {
   const { supplier_name, supplier_email, supplier_phone } = req.body;
-
-  if (typeof supplier_name !== "string" || supplier_name.trim().length < 2) {
-    return res.status(400).json({
-      message: "Invalid supplier name",
-    });
-  }
-  if (
-    typeof supplier_email !== "string" ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supplier_email)
-  ) {
-    return res.status(400).json({
-      message: "Invalid supplier email",
-    });
-  }
-  if (typeof supplier_phone !== "string" || supplier_phone.trim().length < 7) {
-    return res.status(400).json({
-      message: "Invalid supplier phone",
-    });
-  }
 
   const result = await pg.query(
     `

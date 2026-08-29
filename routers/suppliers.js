@@ -4,6 +4,13 @@ const router = express.Router();
 const suppliersController = require("../controllers/suppliers");
 const authenticate = require("../middlewares/auth.js");
 const requirePermission = require("../middlewares/authorization.js");
+const validate = require("../middlewares/validate.js");
+
+const {
+  create: createValidator,
+  update: updateValidator,
+  id: idValidator,
+} = require("../validators/suppliers.js");
 
 router.use(authenticate);
 
@@ -23,6 +30,8 @@ router.use(authenticate);
  *     responses:
  *       200:
  *         description: Suppliers retrieved successfully
+ *       404:
+ *         description: No suppliers found
  */
 router.get("/", requirePermission("supplier.read"), suppliersController.read);
 
@@ -38,14 +47,19 @@ router.get("/", requirePermission("supplier.read"), suppliersController.read);
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
+ *         description: Supplier ID
  *     responses:
  *       200:
  *         description: Supplier found
+ *       400:
+ *         description: Invalid supplier ID
  *       404:
  *         description: Supplier not found
  */
 router.get(
   "/:id",
+  validate(idValidator),
   requirePermission("supplier.read"),
   suppliersController.readOne,
 );
@@ -69,19 +83,27 @@ router.get(
  *             properties:
  *               supplier_name:
  *                 type: string
+ *                 minLength: 2
  *                 example: Tech Supplies Inc
  *               supplier_email:
  *                 type: string
+ *                 format: email
  *                 example: supplier@example.com
  *               supplier_phone:
  *                 type: string
+ *                 minLength: 3
  *                 example: "+966501234567"
  *     responses:
  *       201:
  *         description: Supplier created successfully
+ *       400:
+ *         description: Invalid supplier data
+ *       409:
+ *         description: Supplier already exists
  */
 router.post(
   "/",
+  validate(createValidator),
   requirePermission("supplier.create"),
   suppliersController.create,
 );
@@ -98,30 +120,42 @@ router.post(
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
+ *         description: Supplier ID
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - supplier_name
+ *               - supplier_email
+ *               - supplier_phone
  *             properties:
  *               supplier_name:
  *                 type: string
+ *                 minLength: 2
  *                 example: Tech Supplies Inc
  *               supplier_email:
  *                 type: string
+ *                 format: email
  *                 example: supplier@example.com
  *               supplier_phone:
  *                 type: string
+ *                 minLength: 3
  *                 example: "+966501234567"
  *     responses:
  *       200:
  *         description: Supplier updated successfully
+ *       400:
+ *         description: Invalid supplier data
  *       404:
  *         description: Supplier not found
  */
 router.patch(
   "/:id",
+  validate(updateValidator),
   requirePermission("supplier.update"),
   suppliersController.update,
 );
@@ -138,14 +172,19 @@ router.patch(
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
+ *         description: Supplier ID
  *     responses:
  *       200:
  *         description: Supplier deleted successfully
+ *       400:
+ *         description: Invalid supplier ID
  *       404:
  *         description: Supplier not found
  */
 router.delete(
   "/:id",
+  validate(idValidator),
   requirePermission("supplier.delete"),
   suppliersController.remove,
 );

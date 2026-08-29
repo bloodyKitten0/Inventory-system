@@ -4,6 +4,15 @@ const router = express.Router();
 const productsSupplierController = require("../controllers/products-suppliers");
 const authenticate = require("../middlewares/auth.js");
 const requirePermission = require("../middlewares/authorization.js");
+const validate = require("../middlewares/validate.js");
+
+const {
+  create: createValidator,
+  update: updateValidator,
+  id: idValidator,
+  productId: productIdValidator,
+  supplierId: supplierIdValidator,
+} = require("../validators/product-suppliers.js");
 
 router.use(authenticate);
 
@@ -50,6 +59,7 @@ router.get(
  */
 router.get(
   "/:id",
+  validate(idValidator),
   requirePermission("product_supplier.read"),
   productsSupplierController.readOne,
 );
@@ -67,29 +77,28 @@ router.get(
  *           schema:
  *             type: object
  *             required:
- *               - pid
- *               - sid
- *               - spr
- *               - sku
+ *               - product_id
+ *               - supplier_id
+ *               - supplier_price
  *             properties:
- *               pid:
+ *               product_id:
  *                 type: integer
  *                 example: 1
- *               sid:
+ *               supplier_id:
  *                 type: integer
  *                 example: 2
- *               spr:
+ *               supplier_price:
  *                 type: number
  *                 example: 150.50
- *               sku:
- *                 type: string
- *                 example: "SUP-ABC-001"
  *     responses:
  *       201:
  *         description: Relationship created
+ *       400:
+ *         description: Invalid input
  */
 router.post(
   "/",
+  validate(createValidator),
   requirePermission("product_supplier.create"),
   productsSupplierController.create,
 );
@@ -112,23 +121,31 @@ router.post(
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - product_id
+ *               - supplier_id
+ *               - supplier_price
  *             properties:
- *               pid:
+ *               product_id:
  *                 type: integer
- *               sid:
+ *                 example: 1
+ *               supplier_id:
  *                 type: integer
- *               spr:
+ *                 example: 2
+ *               supplier_price:
  *                 type: number
- *               sku:
- *                 type: string
+ *                 example: 150.50
  *     responses:
  *       200:
  *         description: Relationship updated
+ *       400:
+ *         description: Invalid input
  *       404:
  *         description: Relationship not found
  */
 router.patch(
   "/:id",
+  validate(updateValidator),
   requirePermission("product_supplier.update"),
   productsSupplierController.update,
 );
@@ -153,6 +170,7 @@ router.patch(
  */
 router.delete(
   "/:id",
+  validate(idValidator),
   requirePermission("product_supplier.delete"),
   productsSupplierController.remove,
 );
@@ -177,6 +195,7 @@ router.delete(
  */
 router.get(
   "/product/:id/suppliers",
+  validate(productIdValidator),
   requirePermission("product_supplier.read"),
   productsSupplierController.productsSupplier,
 );
@@ -201,6 +220,7 @@ router.get(
  */
 router.get(
   "/supplier/:id/products",
+  validate(supplierIdValidator),
   requirePermission("product_supplier.read"),
   productsSupplierController.supplierProducts,
 );

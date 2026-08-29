@@ -1,62 +1,41 @@
-const pg = require(`../config/db.js`);
-const test = require(`../services/try-catch.js`);
-const checkRow = require(`../services/rows-check.js`);
-const readAll = require(`../services/read-all.js`);
+const pg = require("../config/db.js");
+const test = require("../services/try-catch.js");
+const checkRow = require("../services/rows-check.js");
+const readAll = require("../services/read-all.js");
 const readId = require("../services/read-id.js");
 const deleteId = require("../services/remove.js");
-const { one } = require(`../services/read-relation.js`);
-const read = readAll(`orders`);
+const { one } = require("../services/read-relation.js");
+
+const read = readAll("orders");
+
 const validStatuses = ["pending", "processing", "completed", "cancelled"];
 
-const readOne = readId(`orders`, `order`);
+const readOne = readId("orders", "order");
 
 const create = test(async (req, res) => {
   const { cid, wid } = req.body;
-  if (!Number.isInteger(cid) || cid <= 0) {
-    return res.status(400).json({
-      message: "Invalid customer ID",
-    });
-  }
 
-  if (!Number.isInteger(wid) || wid <= 0) {
-    return res.status(400).json({
-      message: "Invalid warehouse ID",
-    });
-  }
   const result = await pg.query(
     `
-        INSERT INTO orders 
-            (customer_id,warehouse_id,status,created_at)
-        VALUES
-            ($1,$2,'pending',now())
-        RETURNING * 
-        `,
+    INSERT INTO orders
+      (customer_id, warehouse_id, status, created_at)
+    VALUES
+      ($1, $2, 'pending', now())
+    RETURNING *
+    `,
     [cid, wid],
   );
+
   res.status(201).json(result.rows[0]);
 });
 
 const update = test(async (req, res) => {
   const { cid, wid, status } = req.body;
-  if (!validStatuses.includes(status)) {
-    return res.status(400).json("Invalid order status");
-  }
-  if (!Number.isInteger(cid) || cid <= 0) {
-    return res.status(400).json({
-      message: "Invalid customer ID",
-    });
-  }
-
-  if (!Number.isInteger(wid) || wid <= 0) {
-    return res.status(400).json({
-      message: "Invalid warehouse ID",
-    });
-  }
 
   const result = await pg.query(
     `
     UPDATE orders
-    SET 
+    SET
       customer_id = $2,
       warehouse_id = $3,
       status = $4
@@ -65,34 +44,34 @@ const update = test(async (req, res) => {
     `,
     [req.params.id, cid, wid, status],
   );
-  if (!checkRow(result)) return res.status(404).json("order not found");
+
+  if (!checkRow(result)) {
+    return res.status(404).json("order not found");
+  }
 
   res.status(200).json(result.rows[0]);
 });
 
-const remove = deleteId(`orders`, `order`);
+const remove = deleteId("orders", "order");
 
 const customerOrders = one(
-  `orders`,
-  `customers`,
-  `id`,
-  `customer_id`,
-  `customer_id`,
+  "orders",
+  "customers",
+  "id",
+  "customer_id",
+  "customer_id",
 );
 
 const warehouseOrders = one(
-  `orders`,
-  `warehouses`,
-  `id`,
-  `warehouse_id`,
-  `warehouse_id`,
+  "orders",
+  "warehouses",
+  "id",
+  "warehouse_id",
+  "warehouse_id",
 );
 
 const updateStatus = test(async (req, res) => {
   const { status } = req.body;
-  if (!validStatuses.includes(status)) {
-    return res.status(400).json("Invalid order status");
-  }
 
   const result = await pg.query(
     `
@@ -103,7 +82,11 @@ const updateStatus = test(async (req, res) => {
     `,
     [status, req.params.id],
   );
-  if (!checkRow(result)) return res.status(404).json("order not found");
+
+  if (!checkRow(result)) {
+    return res.status(404).json("order not found");
+  }
+
   res.status(200).json(result.rows[0]);
 });
 
@@ -111,20 +94,21 @@ const cancelOrder = test(async (req, res) => {
   const result = await pg.query(
     `
     UPDATE orders
-    SET
-        status = 'cancelled'
-    WHERE 
-        id = $1
-       AND status = 'pending'
-    RETURNING *`,
+    SET status = 'cancelled'
+    WHERE
+      id = $1
+      AND status = 'pending'
+    RETURNING *
+    `,
     [req.params.id],
   );
-  if (!checkRow(result))
+
+  if (!checkRow(result)) {
     return res.status(404).json("order not found or can't be canceled");
+  }
+
   res.status(200).json(result.rows[0]);
 });
-
-//two function needed to be edited for that case but it'll mean I need to edit everything using it and I'm more lazy than that so take it or leave it
 
 const orderDetails = test(async (req, res) => {
   const result = await pg.query(
@@ -139,12 +123,13 @@ const orderDetails = test(async (req, res) => {
     `,
     [req.params.id],
   );
-  if (!checkRow(result)) return res.status(404).json("order not found");
+
+  if (!checkRow(result)) {
+    return res.status(404).json("order not found");
+  }
 
   res.status(200).json(result.rows);
 });
-
-//
 
 const calculateOrderTotal = test(async (req, res) => {
   const result = await pg.query(
@@ -158,7 +143,10 @@ const calculateOrderTotal = test(async (req, res) => {
     `,
     [req.params.id],
   );
-  if (!checkRow(result)) return res.status(404).json("order not found");
+
+  if (!checkRow(result)) {
+    return res.status(404).json("order not found");
+  }
 
   res.status(200).json(result.rows[0]);
 });
@@ -181,13 +169,15 @@ const processOrder = test(async (req, res) => {
 
     if (!checkRow(orderResult)) {
       await transaction.query(`ROLLBACK`);
-      return res.status(404).json(`Order not found`);
+      return res.status(404).json("Order not found");
     }
 
     const order = orderResult.rows[0];
 
+    // Business rule: only pending orders can be processed.
     if (order.status.toLowerCase() !== "pending") {
       await transaction.query(`ROLLBACK`);
+
       return res.status(400).json({
         error: "Order cannot be processed",
         currentStatus: order.status,
@@ -206,7 +196,7 @@ const processOrder = test(async (req, res) => {
 
     if (!checkRow(itemsResult)) {
       await transaction.query(`ROLLBACK`);
-      return res.status(400).json(`Order has no items`);
+      return res.status(400).json("Order has no items");
     }
 
     for (const item of itemsResult.rows) {
@@ -214,7 +204,8 @@ const processOrder = test(async (req, res) => {
         `
         SELECT *
         FROM inventory
-        WHERE product_id = $1
+        WHERE
+          product_id = $1
           AND warehouse_id = $2
         FOR UPDATE
         `,
@@ -223,6 +214,7 @@ const processOrder = test(async (req, res) => {
 
       if (!checkRow(inventoryResult)) {
         await transaction.query(`ROLLBACK`);
+
         return res
           .status(400)
           .json(`Product ${item.product_id} is not in this warehouse`);
@@ -230,12 +222,15 @@ const processOrder = test(async (req, res) => {
 
       const inventory = inventoryResult.rows[0];
 
+      // Business rule: an order cannot consume more stock than exists.
       if (inventory.amount < item.quantity) {
         await transaction.query(`ROLLBACK`);
+
         return res
           .status(400)
           .json(`Not enough stock for product ${item.product_id}`);
       }
+
       await transaction.query(
         `
         UPDATE inventory
@@ -246,13 +241,14 @@ const processOrder = test(async (req, res) => {
         `,
         [item.quantity, inventory.id],
       );
+
       await transaction.query(
         `
         INSERT INTO stock_movements
           (product_id, warehouse_id, movement_type, quantity, created_at)
         VALUES
           ($1, $2, 'SALE', $3, now())
-  `,
+        `,
         [item.product_id, order.warehouse_id, item.quantity],
       );
     }
@@ -268,6 +264,7 @@ const processOrder = test(async (req, res) => {
     );
 
     await transaction.query(`COMMIT`);
+
     res.status(200).json(updatedOrder.rows[0]);
   } catch (e) {
     await transaction.query(`ROLLBACK`);
@@ -276,6 +273,7 @@ const processOrder = test(async (req, res) => {
     transaction.release();
   }
 });
+
 module.exports = {
   read,
   readOne,

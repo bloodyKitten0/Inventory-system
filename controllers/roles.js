@@ -3,14 +3,10 @@ const pg = require("../config/db.js");
 const checkRow = require("../services/rows-check.js");
 
 const OWNER_ROLE_ID = Number(process.env.OWNER_ID);
+
 if (!Number.isInteger(OWNER_ROLE_ID) || OWNER_ROLE_ID <= 0) {
   throw new Error("OWNER_ID must be a valid positive integer");
 }
-
-const parsePositiveInt = (value) => {
-  const id = Number(value);
-  return Number.isInteger(id) && id > 0 ? id : null;
-};
 
 const readRoles = test(async (req, res) => {
   const result = await pg.query(`
@@ -23,21 +19,13 @@ const readRoles = test(async (req, res) => {
 });
 
 const readRole = test(async (req, res) => {
-  const roleId = parsePositiveInt(req.params.id);
-
-  if (!roleId) {
-    return res.status(400).json({
-      message: "Invalid role ID",
-    });
-  }
-
   const result = await pg.query(
     `
     SELECT *
     FROM roles
     WHERE role_id = $1
     `,
-    [roleId],
+    [req.params.id],
   );
 
   if (!checkRow(result)) {
@@ -51,12 +39,6 @@ const readRole = test(async (req, res) => {
 
 const createRole = test(async (req, res) => {
   const { name } = req.body;
-
-  if (typeof name !== "string" || name.trim().length < 2) {
-    return res.status(400).json({
-      message: "Invalid role name",
-    });
-  }
 
   const existing = await pg.query(
     `
@@ -86,15 +68,7 @@ const createRole = test(async (req, res) => {
 });
 
 const removeRole = test(async (req, res) => {
-  const roleId = parsePositiveInt(req.params.id);
-
-  if (!roleId) {
-    return res.status(400).json({
-      message: "Invalid role ID",
-    });
-  }
-
-  if (roleId === OWNER_ROLE_ID) {
+  if (Number(req.params.id) === OWNER_ROLE_ID) {
     return res.status(403).json({
       message: "The owner role cannot be deleted",
     });
@@ -106,7 +80,7 @@ const removeRole = test(async (req, res) => {
     FROM roles
     WHERE role_id = $1
     `,
-    [roleId],
+    [req.params.id],
   );
 
   if (!checkRow(role)) {
@@ -121,28 +95,20 @@ const removeRole = test(async (req, res) => {
     WHERE role_id = $1
     RETURNING *
     `,
-    [roleId],
+    [req.params.id],
   );
 
   res.status(200).json(result.rows[0]);
 });
 
 const readRolePermissions = test(async (req, res) => {
-  const roleId = parsePositiveInt(req.params.id);
-
-  if (!roleId) {
-    return res.status(400).json({
-      message: "Invalid role ID",
-    });
-  }
-
   const role = await pg.query(
     `
     SELECT 1
     FROM roles
     WHERE role_id = $1
     `,
-    [roleId],
+    [req.params.id],
   );
 
   if (!checkRow(role)) {
@@ -160,27 +126,14 @@ const readRolePermissions = test(async (req, res) => {
     WHERE rp.role_id = $1
     ORDER BY p.permission_id
     `,
-    [roleId],
+    [req.params.id],
   );
 
   res.status(200).json(result.rows);
 });
 
 const grantPermission = test(async (req, res) => {
-  const roleId = parsePositiveInt(req.params.id);
-  const permissionId = parsePositiveInt(req.body.permissionId);
-
-  if (!roleId) {
-    return res.status(400).json({
-      message: "Invalid role ID",
-    });
-  }
-
-  if (!permissionId) {
-    return res.status(400).json({
-      message: "Invalid permission ID",
-    });
-  }
+  const { permissionId } = req.body;
 
   const role = await pg.query(
     `
@@ -188,7 +141,7 @@ const grantPermission = test(async (req, res) => {
     FROM roles
     WHERE role_id = $1
     `,
-    [roleId],
+    [req.params.id],
   );
 
   if (!checkRow(role)) {
@@ -219,7 +172,7 @@ const grantPermission = test(async (req, res) => {
     WHERE role_id = $1
       AND permission_id = $2
     `,
-    [roleId, permissionId],
+    [req.params.id, permissionId],
   );
 
   if (checkRow(existing)) {
@@ -234,28 +187,13 @@ const grantPermission = test(async (req, res) => {
     VALUES ($1, $2)
     RETURNING *
     `,
-    [roleId, permissionId],
+    [req.params.id, permissionId],
   );
 
   res.status(201).json(result.rows[0]);
 });
 
 const revokePermission = test(async (req, res) => {
-  const roleId = parsePositiveInt(req.params.id);
-  const permissionId = parsePositiveInt(req.params.permissionId);
-
-  if (!roleId) {
-    return res.status(400).json({
-      message: "Invalid role ID",
-    });
-  }
-
-  if (!permissionId) {
-    return res.status(400).json({
-      message: "Invalid permission ID",
-    });
-  }
-
   const result = await pg.query(
     `
     DELETE FROM role_permissions
@@ -263,7 +201,7 @@ const revokePermission = test(async (req, res) => {
       AND permission_id = $2
     RETURNING *
     `,
-    [roleId, permissionId],
+    [req.params.id, req.params.permissionId],
   );
 
   if (!checkRow(result)) {
@@ -276,21 +214,13 @@ const revokePermission = test(async (req, res) => {
 });
 
 const readAccountRoles = test(async (req, res) => {
-  const accountId = parsePositiveInt(req.params.accountId);
-
-  if (!accountId) {
-    return res.status(400).json({
-      message: "Invalid account ID",
-    });
-  }
-
   const account = await pg.query(
     `
     SELECT 1
     FROM accounts
     WHERE account_id = $1
     `,
-    [accountId],
+    [req.params.accountId],
   );
 
   if (!checkRow(account)) {
@@ -308,27 +238,14 @@ const readAccountRoles = test(async (req, res) => {
     WHERE ar.account_id = $1
     ORDER BY r.role_id
     `,
-    [accountId],
+    [req.params.accountId],
   );
 
   res.status(200).json(result.rows);
 });
 
 const grantRole = test(async (req, res) => {
-  const accountId = parsePositiveInt(req.params.accountId);
-  const roleId = parsePositiveInt(req.body.roleId);
-
-  if (!accountId) {
-    return res.status(400).json({
-      message: "Invalid account ID",
-    });
-  }
-
-  if (!roleId) {
-    return res.status(400).json({
-      message: "Invalid role ID",
-    });
-  }
+  const { roleId } = req.body;
 
   const account = await pg.query(
     `
@@ -336,7 +253,7 @@ const grantRole = test(async (req, res) => {
     FROM accounts
     WHERE account_id = $1
     `,
-    [accountId],
+    [req.params.accountId],
   );
 
   if (!checkRow(account)) {
@@ -367,7 +284,7 @@ const grantRole = test(async (req, res) => {
     WHERE account_id = $1
       AND role_id = $2
     `,
-    [accountId, roleId],
+    [req.params.accountId, roleId],
   );
 
   if (checkRow(existing)) {
@@ -382,29 +299,14 @@ const grantRole = test(async (req, res) => {
     VALUES ($1, $2)
     RETURNING *
     `,
-    [accountId, roleId],
+    [req.params.accountId, roleId],
   );
 
   res.status(201).json(result.rows[0]);
 });
 
 const revokeRole = test(async (req, res) => {
-  const accountId = parsePositiveInt(req.params.accountId);
-  const roleId = parsePositiveInt(req.params.roleId);
-
-  if (!accountId) {
-    return res.status(400).json({
-      message: "Invalid account ID",
-    });
-  }
-
-  if (!roleId) {
-    return res.status(400).json({
-      message: "Invalid role ID",
-    });
-  }
-
-  if (roleId === OWNER_ROLE_ID) {
+  if (Number(req.params.roleId) === OWNER_ROLE_ID) {
     const ownerCount = await pg.query(
       `
       SELECT COUNT(*)::int AS count
@@ -428,7 +330,7 @@ const revokeRole = test(async (req, res) => {
       AND role_id = $2
     RETURNING *
     `,
-    [accountId, roleId],
+    [req.params.accountId, req.params.roleId],
   );
 
   if (!checkRow(result)) {

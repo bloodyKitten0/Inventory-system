@@ -16,8 +16,12 @@ const {
 } = require("../controllers/inventory");
 
 const router = express.Router();
+
 const authenticate = require("../middlewares/auth.js");
 const requirePermission = require("../middlewares/authorization.js");
+const validate = require("../middlewares/validate.js");
+
+const inventoryValidation = require("../validators/inventory.js");
 
 router.use(authenticate);
 
@@ -36,7 +40,7 @@ router.use(authenticate);
  *     tags: [Inventory]
  *     responses:
  *       200:
- *         description: Inventory records
+ *         description: Inventory records retrieved successfully
  *       404:
  *         description: No inventory found
  */
@@ -54,15 +58,19 @@ router.get("/inventory", requirePermission("inventory.read"), read);
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
  *         description: Product ID
  *     responses:
  *       200:
- *         description: Product inventory
+ *         description: Product inventory retrieved successfully
+ *       400:
+ *         description: Invalid product ID
  *       404:
  *         description: Product inventory not found
  */
 router.get(
   "/inventory/product/:id",
+  validate(inventoryValidation.id),
   requirePermission("inventory.read"),
   productInventory,
 );
@@ -79,15 +87,19 @@ router.get(
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
  *         description: Warehouse ID
  *     responses:
  *       200:
- *         description: Warehouse inventory
+ *         description: Warehouse inventory retrieved successfully
+ *       400:
+ *         description: Invalid warehouse ID
  *       404:
  *         description: Warehouse inventory not found
  */
 router.get(
   "/inventory/warehouse/:id",
+  validate(inventoryValidation.id),
   requirePermission("inventory.read"),
   warehouseInventory,
 );
@@ -103,16 +115,18 @@ router.get(
  *         name: below
  *         required: true
  *         schema:
- *           type: integer
+ *           type: number
+ *           minimum: 0
  *         description: Stock threshold
  *     responses:
  *       200:
  *         description: Products below the threshold
- *       404:
- *         description: No products below the threshold
+ *       400:
+ *         description: Invalid stock threshold
  */
 router.get(
   "/inventory/low-stock/:below",
+  validate(inventoryValidation.lowStock),
   requirePermission("inventory.low_stock"),
   lowStock,
 );
@@ -125,7 +139,7 @@ router.get(
  *     tags: [Inventory]
  *     responses:
  *       200:
- *         description: Inventory summary
+ *         description: Inventory summary retrieved successfully
  *       404:
  *         description: Inventory is empty
  */
@@ -147,15 +161,19 @@ router.get(
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
  *         description: Product ID
  *     responses:
  *       200:
- *         description: Product inventory summary
+ *         description: Product inventory summary retrieved successfully
+ *       400:
+ *         description: Invalid product ID
  *       404:
  *         description: Inventory is empty
  */
 router.get(
   "/inventory/summary/:id",
+  validate(inventoryValidation.id),
   requirePermission("inventory.summary"),
   inventorySummaryOne,
 );
@@ -172,14 +190,22 @@ router.get(
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
  *         description: Inventory ID
  *     responses:
  *       200:
- *         description: Inventory record
+ *         description: Inventory record retrieved successfully
+ *       400:
+ *         description: Invalid inventory ID
  *       404:
  *         description: Inventory not found
  */
-router.get("/inventory/:id", requirePermission("inventory.read"), readOne);
+router.get(
+  "/inventory/:id",
+  validate(inventoryValidation.id),
+  requirePermission("inventory.read"),
+  readOne,
+);
 
 /**
  * @swagger
@@ -194,24 +220,28 @@ router.get("/inventory/:id", requirePermission("inventory.read"), readOne);
  *           schema:
  *             type: object
  *             required:
- *               - pid
- *               - wid
- *               - amo
+ *               - product_id
+ *               - warehouse_id
+ *               - quantity
  *             properties:
- *               pid:
+ *               product_id:
  *                 type: integer
- *                 description: Product ID
- *               wid:
+ *               warehouse_id:
  *                 type: integer
- *                 description: Warehouse ID
- *               amo:
- *                 type: integer
- *                 description: Initial stock amount
+ *               quantity:
+ *                 type: number
  *     responses:
  *       201:
- *         description: Inventory created
+ *         description: Inventory created successfully
+ *       400:
+ *         description: Invalid inventory data
  */
-router.post("/inventory", requirePermission("inventory.create"), create);
+router.post(
+  "/inventory",
+  validate(inventoryValidation.create),
+  requirePermission("inventory.create"),
+  create,
+);
 
 /**
  * @swagger
@@ -225,27 +255,32 @@ router.post("/inventory", requirePermission("inventory.create"), create);
  *         required: true
  *         schema:
  *           type: integer
- *         description: Inventory ID
+ *           minimum: 1
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - quantity
  *             properties:
- *               pid:
- *                 type: integer
- *               wid:
- *                 type: integer
- *               amo:
- *                 type: integer
+ *               quantity:
+ *                 type: number
  *     responses:
  *       200:
- *         description: Inventory updated
+ *         description: Inventory updated successfully
+ *       400:
+ *         description: Invalid inventory data
  *       404:
  *         description: Inventory not found
  */
-router.put("/inventory/:id", requirePermission("inventory.update"), update);
+router.put(
+  "/inventory/:id",
+  validate(inventoryValidation.update),
+  requirePermission("inventory.update"),
+  update,
+);
 
 /**
  * @swagger
@@ -259,13 +294,21 @@ router.put("/inventory/:id", requirePermission("inventory.update"), update);
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
  *     responses:
  *       200:
- *         description: Inventory deleted
+ *         description: Inventory deleted successfully
+ *       400:
+ *         description: Invalid inventory ID
  *       404:
  *         description: Inventory not found
  */
-router.delete("/inventory/:id", requirePermission("inventory.delete"), remove);
+router.delete(
+  "/inventory/:id",
+  validate(inventoryValidation.id),
+  requirePermission("inventory.delete"),
+  remove,
+);
 
 /**
  * @swagger
@@ -279,7 +322,7 @@ router.delete("/inventory/:id", requirePermission("inventory.delete"), remove);
  *         required: true
  *         schema:
  *           type: integer
- *         description: Inventory ID
+ *           minimum: 1
  *     requestBody:
  *       required: true
  *       content:
@@ -287,22 +330,22 @@ router.delete("/inventory/:id", requirePermission("inventory.delete"), remove);
  *           schema:
  *             type: object
  *             required:
- *               - change
+ *               - amount
  *             properties:
- *               change:
- *                 type: integer
- *                 description: Amount to add or remove. Use a negative number to remove stock.
+ *               amount:
+ *                 type: number
  *                 example: -5
  *     responses:
  *       200:
- *         description: Stock adjusted
+ *         description: Stock adjusted successfully
  *       400:
- *         description: Not enough stock
+ *         description: Invalid adjustment or not enough stock
  *       404:
  *         description: Inventory not found
  */
 router.patch(
   "/inventory/:id/adjust",
+  validate(inventoryValidation.adjust),
   requirePermission("inventory.adjust"),
   adjustStock,
 );
@@ -326,24 +369,21 @@ router.patch(
  *             properties:
  *               amount:
  *                 type: integer
- *                 description: Requested quantity
- *                 example: 10
  *               pid:
  *                 type: integer
- *                 description: Product ID
- *                 example: 1
  *               wid:
  *                 type: integer
- *                 description: Warehouse ID
- *                 example: 2
  *     responses:
  *       200:
  *         description: Availability result
+ *       400:
+ *         description: Invalid availability request
  *       404:
  *         description: Inventory not found
  */
 router.post(
   "/inventory/check-availability",
+  validate(inventoryValidation.checkAvailability),
   requirePermission("inventory.checks"),
   checkAvailability,
 );

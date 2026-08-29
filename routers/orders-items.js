@@ -12,8 +12,16 @@ const {
 } = require("../controllers/orders-items");
 
 const router = express.Router();
+
 const authenticate = require("../middlewares/auth.js");
 const requirePermission = require("../middlewares/authorization.js");
+const validate = require("../middlewares/validate.js");
+
+const {
+  create: createValidator,
+  update: updateValidator,
+  id: idValidator,
+} = require("../validators/order-items.js");
 
 router.use(authenticate);
 
@@ -32,7 +40,7 @@ router.use(authenticate);
  *     tags: [Order Items]
  *     responses:
  *       200:
- *         description: Order items
+ *         description: Order items retrieved successfully
  *       404:
  *         description: No order items found
  */
@@ -50,14 +58,22 @@ router.get("/orders-items", requirePermission("order_item.read"), read);
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
  *         description: Order item ID
  *     responses:
  *       200:
- *         description: Order item
+ *         description: Order item found
+ *       400:
+ *         description: Invalid order item ID
  *       404:
  *         description: Order item not found
  */
-router.get("/orders-items/:id", requirePermission("order_item.read"), readOne);
+router.get(
+  "/orders-items/:id",
+  validate(idValidator),
+  requirePermission("order_item.read"),
+  readOne,
+);
 
 /**
  * @swagger
@@ -72,29 +88,36 @@ router.get("/orders-items/:id", requirePermission("order_item.read"), readOne);
  *           schema:
  *             type: object
  *             required:
- *               - oid
- *               - pid
- *               - quan
+ *               - order_id
+ *               - product_id
+ *               - quantity
  *               - price
  *             properties:
- *               oid:
+ *               order_id:
  *                 type: integer
- *                 description: Order ID
- *               pid:
+ *                 example: 1
+ *               product_id:
  *                 type: integer
- *                 description: Product ID
- *               quan:
+ *                 example: 5
+ *               quantity:
  *                 type: integer
- *                 description: Quantity ordered
+ *                 example: 3
  *               price:
  *                 type: number
  *                 format: double
- *                 description: Price per unit
+ *                 example: 29.99
  *     responses:
  *       201:
- *         description: Order item created
+ *         description: Order item created successfully
+ *       400:
+ *         description: Invalid order item data
  */
-router.post("/orders-items", requirePermission("order_item.create"), create);
+router.post(
+  "/orders-items",
+  validate(createValidator),
+  requirePermission("order_item.create"),
+  create,
+);
 
 /**
  * @swagger
@@ -108,6 +131,7 @@ router.post("/orders-items", requirePermission("order_item.create"), create);
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
  *         description: Order item ID
  *     requestBody:
  *       required: true
@@ -115,27 +139,31 @@ router.post("/orders-items", requirePermission("order_item.create"), create);
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - quantity
+ *               - price
  *             properties:
- *               oid:
+ *               quantity:
  *                 type: integer
- *                 description: Order ID
- *               pid:
- *                 type: integer
- *                 description: Product ID
- *               quan:
- *                 type: integer
- *                 description: Quantity ordered
+ *                 example: 5
  *               price:
  *                 type: number
  *                 format: double
- *                 description: Price per unit
+ *                 example: 24.99
  *     responses:
  *       200:
- *         description: Order item updated
+ *         description: Order item updated successfully
+ *       400:
+ *         description: Invalid order item data
  *       404:
  *         description: Order item not found
  */
-router.put("/orders-items/:id", requirePermission("order_item.update"), update);
+router.put(
+  "/orders-items/:id",
+  validate(updateValidator),
+  requirePermission("order_item.update"),
+  update,
+);
 
 /**
  * @swagger
@@ -149,15 +177,19 @@ router.put("/orders-items/:id", requirePermission("order_item.update"), update);
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
  *         description: Order item ID
  *     responses:
  *       200:
- *         description: Order item deleted
+ *         description: Order item deleted successfully
+ *       400:
+ *         description: Invalid order item ID
  *       404:
  *         description: Order item not found
  */
 router.delete(
   "/orders-items/:id",
+  validate(idValidator),
   requirePermission("order_item.delete"),
   remove,
 );
@@ -174,15 +206,19 @@ router.delete(
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
  *         description: Order ID
  *     responses:
  *       200:
- *         description: Order items
+ *         description: Order items retrieved successfully
+ *       400:
+ *         description: Invalid order ID
  *       404:
  *         description: No items found for this order
  */
 router.get(
   "/orders-items/order/:id",
+  validate(idValidator),
   requirePermission("order_item.read"),
   orderItems,
 );
@@ -199,15 +235,19 @@ router.get(
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
  *         description: Product ID
  *     responses:
  *       200:
  *         description: Order items containing the product
+ *       400:
+ *         description: Invalid product ID
  *       404:
  *         description: No order items found for this product
  */
 router.get(
   "/orders-items/product/:id",
+  validate(idValidator),
   requirePermission("order_item.read"),
   productOrderItems,
 );
@@ -224,14 +264,19 @@ router.get(
  *         required: true
  *         schema:
  *           type: integer
+ *           minimum: 1
+ *         description: Order item ID
  *     responses:
  *       200:
  *         description: Order item with related order and product
+ *       400:
+ *         description: Invalid order item ID
  *       404:
  *         description: Order item not found
  */
 router.get(
   "/orders-items/details/:id",
+  validate(idValidator),
   requirePermission("order_item.read"),
   orderItemDetails,
 );
