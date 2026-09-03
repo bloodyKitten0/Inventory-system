@@ -10,7 +10,7 @@ const read = readAll(`products`);
 const readOne = readId("products", "Product");
 
 const create = test(async (req, res) => {
-  const { name, cata, desc, price } = req.body;
+  const { name, category_id, description, price } = req.body;
 
   const result = await pg.query(
     `
@@ -18,14 +18,14 @@ const create = test(async (req, res) => {
     VALUES ($1, $2, $3, $4)
     RETURNING *
     `,
-    [name.trim(), cata, desc.trim(), price],
+    [name.trim(), category_id, description?.trim(), price],
   );
 
   res.status(201).json(result.rows[0]);
 });
 
 const update = test(async (req, res) => {
-  const { name, cata, desc, price } = req.body;
+  const { name, category_id, description, price } = req.body;
 
   const result = await pg.query(
     `
@@ -38,7 +38,7 @@ const update = test(async (req, res) => {
     WHERE id = $1
     RETURNING *
     `,
-    [req.params.id, name.trim(), cata, desc.trim(), price],
+    [req.params.id, name.trim(), category_id, description?.trim(), price],
   );
 
   if (!checkRow(result)) {

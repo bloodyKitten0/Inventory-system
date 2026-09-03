@@ -14,7 +14,6 @@ const validate = (schema) => {
       for (const [field, rules] of Object.entries(fields)) {
         const value = data[field];
 
-        // Required
         if (
           rules.required &&
           (value === undefined || value === null || value === "")
@@ -27,13 +26,10 @@ const validate = (schema) => {
 
           continue;
         }
-
-        // Optional field not provided
+        d;
         if (value === undefined || value === null || value === "") {
           continue;
         }
-
-        // Type
         if (rules.type && typeof value !== rules.type) {
           errors.push({
             field,
@@ -43,8 +39,6 @@ const validate = (schema) => {
 
           continue;
         }
-
-        // Whitespace
         if (rules.trim && typeof value === "string" && value.trim() !== value) {
           errors.push({
             field,
@@ -52,8 +46,6 @@ const validate = (schema) => {
             message: `${field} must not have leading or trailing whitespace`,
           });
         }
-
-        // Minimum length
         if (
           rules.minLength !== undefined &&
           typeof value === "string" &&
@@ -65,8 +57,6 @@ const validate = (schema) => {
             message: `${field} must be at least ${rules.minLength} characters`,
           });
         }
-
-        // Maximum length
         if (
           rules.maxLength !== undefined &&
           typeof value === "string" &&
@@ -78,8 +68,6 @@ const validate = (schema) => {
             message: `${field} must be at most ${rules.maxLength} characters`,
           });
         }
-
-        // Pattern
         if (
           rules.pattern &&
           typeof value === "string" &&
@@ -91,8 +79,6 @@ const validate = (schema) => {
             message: `${field} has an invalid format`,
           });
         }
-
-        // Integer
         if (rules.integer && !Number.isInteger(value)) {
           errors.push({
             field,
@@ -100,8 +86,6 @@ const validate = (schema) => {
             message: `${field} must be an integer`,
           });
         }
-
-        // Minimum number
         if (
           rules.min !== undefined &&
           typeof value === "number" &&
@@ -113,8 +97,6 @@ const validate = (schema) => {
             message: `${field} must be at least ${rules.min}`,
           });
         }
-
-        // Maximum number
         if (
           rules.max !== undefined &&
           typeof value === "number" &&
@@ -126,8 +108,6 @@ const validate = (schema) => {
             message: `${field} must be at most ${rules.max}`,
           });
         }
-
-        // Finite number
         if (
           rules.finite &&
           typeof value === "number" &&
@@ -139,11 +119,15 @@ const validate = (schema) => {
             message: `${field} must be a finite number`,
           });
         }
-
-        // Email
+        if (rules.notEqual !== undefined && value === rules.notEqual) {
+          errors.push({
+            field,
+            source,
+            message: `${field} must not equal ${rules.notEqual}`,
+          });
+        }
         if (rules.email && typeof value === "string") {
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
           if (!emailRegex.test(value.trim())) {
             errors.push({
               field,
@@ -152,8 +136,6 @@ const validate = (schema) => {
             });
           }
         }
-
-        // Enum
         if (rules.enum && !rules.enum.includes(value)) {
           errors.push({
             field,
@@ -161,8 +143,6 @@ const validate = (schema) => {
             message: `${field} must be one of: ${rules.enum.join(", ")}`,
           });
         }
-
-        // Custom validation
         if (rules.custom) {
           const result = rules.custom(value, data);
 
@@ -176,7 +156,6 @@ const validate = (schema) => {
         }
       }
     }
-
     if (errors.length > 0) {
       return res.status(400).json({
         message: "Validation failed",
