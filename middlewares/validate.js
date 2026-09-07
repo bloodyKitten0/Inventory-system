@@ -26,7 +26,6 @@ const validate = (schema) => {
 
           continue;
         }
-        d;
         if (value === undefined || value === null || value === "") {
           continue;
         }
