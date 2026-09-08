@@ -850,10 +850,6 @@ test("register passes verification email errors to next", async () => {
   });
 });
 
-/* -------------------------------------------------------------------------- */
-/* VERIFY ACCOUNT                                                              */
-/* -------------------------------------------------------------------------- */
-
 test("verifyAccount hashes the supplied verification token", async () => {
   await withEnvironment(async () => {
     const environment = createEnvironment();
@@ -1131,10 +1127,6 @@ test("verifyAccount passes rollback errors to next", async () => {
     assert.equal(next.args[0], rollbackError);
   });
 });
-
-/* -------------------------------------------------------------------------- */
-/* LOGIN                                                                       */
-/* -------------------------------------------------------------------------- */
 
 test("login trims the email before querying the database", async () => {
   await withEnvironment(async () => {
@@ -1505,10 +1497,6 @@ test("login passes session creation errors to next", async () => {
     assert.equal(next.args[0], sessionError);
   });
 });
-
-/* -------------------------------------------------------------------------- */
-/* LOGOUT                                                                      */
-/* -------------------------------------------------------------------------- */
 
 test("logout returns 401 when no session cookie exists", async () => {
   await withEnvironment(async () => {

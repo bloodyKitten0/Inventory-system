@@ -133,10 +133,6 @@ test("hasPermission accepts different permission names", async () => {
   }
 });
 
-// ============================================================
-// requirePermission()
-// ============================================================
-
 test("requirePermission calls next when the user has the required permission", async () => {
   const originalQuery = pg.query;
 
