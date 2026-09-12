@@ -17,4 +17,3 @@ const hasPermission = async (accountId, permissionName) => {
 };
 
 module.exports = { hasPermission };
-//

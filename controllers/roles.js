@@ -354,4 +354,3 @@ module.exports = {
   grantRole,
   revokeRole,
 };
-//

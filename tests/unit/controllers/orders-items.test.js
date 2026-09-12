@@ -160,4 +160,3 @@ test("update returns 404 when item does not exist", async () => {
     pg.query = originalQuery;
   }
 });
-//

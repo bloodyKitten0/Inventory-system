@@ -9,4 +9,3 @@ const test = (callback) => {
 };
 
 module.exports = test;
-//

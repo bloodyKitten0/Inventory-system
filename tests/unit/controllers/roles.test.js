@@ -946,4 +946,3 @@ test("revokeRole removes a normal account-role assignment", async () => {
     pg.query = originalQuery;
   }
 });
-//

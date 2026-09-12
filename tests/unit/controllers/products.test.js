@@ -203,4 +203,3 @@ test("remove deletes a product", async () => {
     pg.query = originalQuery;
   }
 });
-//

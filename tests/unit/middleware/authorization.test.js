@@ -354,4 +354,3 @@ test("requirePermission forwards database errors to next", async () => {
     pg.query = originalQuery;
   }
 });
-//

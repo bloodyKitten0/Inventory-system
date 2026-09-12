@@ -134,4 +134,3 @@ router.post("/login", validate(loginValidator), login);
 router.post("/logout", logout);
 
 module.exports = router;
-//

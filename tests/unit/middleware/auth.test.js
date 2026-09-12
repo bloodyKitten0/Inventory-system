@@ -213,4 +213,3 @@ test("stores the exact session returned by getSession in req.user", async () => 
     sessions.getSession = originalGetSession;
   }
 });
-//

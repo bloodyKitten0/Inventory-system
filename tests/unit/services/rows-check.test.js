@@ -52,4 +52,3 @@ test("returns true when the result contains a single empty object row", () => {
 
   assert.equal(checkRow(result), true);
 });
-//

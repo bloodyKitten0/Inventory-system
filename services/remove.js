@@ -19,4 +19,3 @@ const remove = (col, name, id = `id`) =>
   });
 
 module.exports = remove;
-//

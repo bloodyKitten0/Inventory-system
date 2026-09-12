@@ -143,4 +143,3 @@ test("update returns 404 when supplier does not exist", async () => {
     pg.query = originalQuery;
   }
 });
-//

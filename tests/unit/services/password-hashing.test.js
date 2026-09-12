@@ -78,4 +78,3 @@ test("verifyPassword is asynchronous", async () => {
 
   assert.equal(await result, true);
 });
-//

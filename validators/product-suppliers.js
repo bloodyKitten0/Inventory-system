@@ -45,4 +45,3 @@ module.exports = {
   productId,
   supplierId,
 };
-//

@@ -65,4 +65,3 @@ test("verifyAccount validates token in query parameters", () => {
   assert.equal(token.type, "string");
   assert.equal(token.minLength, 1);
 });
-//

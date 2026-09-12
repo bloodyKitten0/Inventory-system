@@ -65,4 +65,3 @@ test("revokeRole validates account and role IDs", () => {
 
   assert.deepEqual(validators.revokeRole.params.roleId, positiveInteger);
 });
-//

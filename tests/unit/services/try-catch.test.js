@@ -143,4 +143,3 @@ test("does not throw the callback error to the caller", async () => {
 
   assert.equal(receivedError, error);
 });
-//

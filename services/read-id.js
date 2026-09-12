@@ -28,4 +28,3 @@ const readId = (
   });
 
 module.exports = readId;
-//

@@ -10,4 +10,3 @@ const pg = new Pool({
 });
 
 module.exports = pg;
-//

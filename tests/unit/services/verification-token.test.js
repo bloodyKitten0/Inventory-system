@@ -82,4 +82,3 @@ test("hashVerificationToken correctly handles long tokens", () => {
   assert.equal(hash.length, 64);
   assert.match(hash, /^[a-f0-9]{64}$/);
 });
-//

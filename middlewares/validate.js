@@ -167,4 +167,3 @@ const validate = (schema) => {
 };
 
 module.exports = validate;
-//

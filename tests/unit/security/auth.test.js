@@ -1650,4 +1650,3 @@ test("logout uses secure cookie clearing when COOKIE_SECURE is true", async () =
     assert.equal(res.clearCookieCalls[0].options.secure, true);
   });
 });
-//
