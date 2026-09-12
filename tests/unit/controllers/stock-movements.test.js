@@ -222,3 +222,4 @@ test("productWarehouseMovements returns joined movements", async () => {
     pg.query = originalQuery;
   }
 });
+//

@@ -246,3 +246,4 @@ test("resolves when verification and email delivery succeed", async () => {
 
   assert.equal(result, undefined);
 });
+//

@@ -626,3 +626,4 @@ test("checkAvailability returns 404 when inventory does not exist", async () => 
     pg.query = originalQuery;
   }
 });
+//

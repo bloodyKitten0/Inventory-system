@@ -59,3 +59,4 @@ test("email has string type and email validation", () => {
   assert.equal(email.email, true);
   assert.equal(email.maxLength, 254);
 });
+//

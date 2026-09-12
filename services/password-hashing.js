@@ -9,3 +9,4 @@ const verifyPassword = (storedHash, password) => {
 };
 
 module.exports = { hashPassword, verifyPassword };
+//

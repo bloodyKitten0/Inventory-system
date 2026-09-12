@@ -12,3 +12,4 @@ const requirePermission = (permissionName) => {
 };
 
 module.exports = requirePermission;
+//

@@ -22,3 +22,4 @@ const sendVerificationEmail = async (email, rawToken) => {
 };
 
 module.exports = sendVerificationEmail;
+//

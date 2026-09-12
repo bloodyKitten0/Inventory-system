@@ -36,3 +36,4 @@ const two = (select, join1, onsj1, onjj1, join2, onsj2, onjj2, swhere) =>
   });
 
 module.exports = { one, two };
+//
