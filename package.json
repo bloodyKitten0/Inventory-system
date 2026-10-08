@@ -1,17 +1,19 @@
 {
   "name": "inventory-system",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A RESTful inventory and operations backend built with **Node.js, Express, PostgreSQL, Redis, and JavaScript**.",
+  "main": "dist/server.js",
   "scripts": {
-    "start": "node server.js",
-    "test": "node --test",
-    "watch": "node --test --watch"
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node src/server.ts",
+    "test": "tsc && node --experimental-test-module-mocks --test \"dist/tests/**/*.test.js\"",
+    "watch": "node --experimental-test-module-mocks --test --watch \"dist/tests/**/*.test.js\""
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
     "argon2": "^0.45.1",
     "cookie-parser": "^1.4.7",
@@ -22,5 +24,22 @@
     "redis": "^6.2.1",
     "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.7",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "@types/nodemailer": "^6.4.17",
+    "@types/pg": "^8.11.0",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.0"
+  },
+  "directories": {
+    "test": "tests"
+  },
+  "allowScripts": {
+    "argon2@0.45.1": true
   }
 }
