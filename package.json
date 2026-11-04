@@ -11,7 +11,7 @@
     "watch": "node --experimental-test-module-mocks --test --watch dist/tests/unit/*/*.test.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "Bloody Kitten",
   "license": "ISC",
   "type": "module",
   "dependencies": {
