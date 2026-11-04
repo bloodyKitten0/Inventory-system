@@ -1,6 +1,7 @@
 import test from "../services/try-catch.js";
 import pg from "../config/db.js";
 import checkRow from "../services/rows-check.js";
+import { withTransaction } from "../services/transaction.js";
 
 const getOwnerRoleId = async (client?: any): Promise<number> => {
   const envId = Number(process.env.OWNER_ID);
@@ -362,44 +363,57 @@ const revokeRole = test(async (req, res) => {
   const isOwner = await isOwnerRoleId(Number(req.params.roleId));
   const ownerRoleId = await getOwnerRoleId();
 
-  if (isOwner) {
-    const ownerCount = await pg.query(
+  const outcome = await withTransaction(async (client) => {
+    if (isOwner) {
+      await client.query(
+        `SELECT role_id FROM roles WHERE role_id = $1 FOR UPDATE`,
+        [ownerRoleId],
+      );
+
+      const ownerCount = await client.query(
+        `
+        SELECT COUNT(*)::int AS count
+        FROM account_roles
+        WHERE role_id = $1
+        `,
+        [ownerRoleId],
+      );
+
+      if (ownerCount.rows[0]?.count <= 1) {
+        return {
+          status: 403,
+          body: {
+            message: "The last owner cannot be removed",
+          },
+        };
+      }
+    }
+
+    const result = await client.query(
       `
-      SELECT COUNT(*)::int AS count
-      FROM account_roles
-      WHERE role_id = $1
+      DELETE FROM account_roles
+      WHERE account_id = $1 AND role_id = $2
+      RETURNING *
       `,
-      [ownerRoleId],
+      [req.params.accountId, req.params.roleId],
     );
 
-    if (ownerCount.rows[0].count <= 1) {
-      return res.status(403).json({
-        message: "The last owner cannot be removed",
-      });
+    if (!checkRow(result)) {
+      return {
+        status: 404,
+        body: {
+          message: "Account-role assignment not found",
+        },
+      };
     }
-  }
 
-  const result = await pg.query(
-    `
-    DELETE FROM account_roles
-    WHERE account_id = $1
-      AND role_id = $2
-      AND (
-        $2 != $3
-        OR (SELECT COUNT(*) FROM account_roles WHERE role_id = $3) > 1
-      )
-    RETURNING *
-    `,
-    [req.params.accountId, req.params.roleId, ownerRoleId],
-  );
+    return {
+      status: 200,
+      body: result.rows[0],
+    };
+  });
 
-  if (!checkRow(result)) {
-    return res.status(404).json({
-      message: "Account-role assignment not found",
-    });
-  }
-
-  res.status(200).json(result.rows[0]);
+  res.status(outcome.status).json(outcome.body);
 });
 
 export {

@@ -158,6 +158,23 @@ const verifyAccount = test(async (req, res) => {
   try {
     await transaction.query("BEGIN");
 
+    const claimToken = await transaction.query(
+      `
+      SELECT token_id, account_id, expires_at
+      FROM account_verification_tokens
+      WHERE token_id = $1
+      FOR UPDATE
+      `,
+      [tokenId],
+    );
+
+    if (claimToken.rowCount === 0) {
+      await transaction.query("ROLLBACK");
+      return res.status(400).json({
+        message: "Invalid verification token",
+      });
+    }
+
     await transaction.query(
       `
       UPDATE accounts
@@ -167,13 +184,20 @@ const verifyAccount = test(async (req, res) => {
       [accountId],
     );
 
-    await transaction.query(
+    const deleteResult = await transaction.query(
       `
       DELETE FROM account_verification_tokens
       WHERE token_id = $1
       `,
       [tokenId],
     );
+
+    if (deleteResult.rowCount === 0) {
+      await transaction.query("ROLLBACK");
+      return res.status(400).json({
+        message: "Invalid verification token",
+      });
+    }
 
     await transaction.query("COMMIT");
 
@@ -298,6 +322,25 @@ const bootstrap = test(async (req, res) => {
   const transaction = await pg.connect();
   try {
     await transaction.query("BEGIN");
+
+    // Serialize concurrent bootstrap attempts by locking the owner role
+    await transaction.query(
+      `SELECT role_id FROM roles WHERE LOWER(name) = 'owner' FOR UPDATE`,
+    );
+
+    const txOwnerCheck = await transaction.query(
+      `SELECT 1
+       FROM account_roles ar
+       JOIN roles r ON r.role_id = ar.role_id
+       WHERE LOWER(r.name) = 'owner'`,
+    );
+
+    if (txOwnerCheck.rows && txOwnerCheck.rows.length > 0) {
+      await transaction.query("ROLLBACK");
+      return res.status(403).json({
+        message: "Administrator already exists",
+      });
+    }
 
     const account = await transaction.query(
       `

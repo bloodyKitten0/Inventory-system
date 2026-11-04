@@ -7,6 +7,29 @@ import deleteId from "../services/remove.js";
 import { one } from "../services/read-relation.js";
 import { withTransaction } from "../services/transaction.js";
 
+const restoreOrderInventory = async (
+  client: any,
+  orderId: any,
+  warehouseId: number,
+  reason: string,
+) => {
+  const items = await client.query(
+    `SELECT * FROM orders_items WHERE order_id = $1`,
+    [orderId],
+  );
+  for (const item of items.rows) {
+    await client.query(
+      `UPDATE inventory SET amount = amount + $1 WHERE product_id = $2 AND warehouse_id = $3`,
+      [item.quantity, item.product_id, warehouseId],
+    );
+    await client.query(
+      `INSERT INTO stock_movements (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
+       VALUES ($1, $2, 'RECEIPT', $3, now(), $4, $5)`,
+      [item.product_id, warehouseId, item.quantity, orderId, reason],
+    );
+  }
+};
+
 const read = test(async (req, res) => {
   if (req.user?.customerId) {
     const result = await pg.query(
@@ -139,6 +162,27 @@ const update = test(async (req, res) => {
     }
   }
 
+  if (currentStatus === "processing" && nextStatus === "cancelled") {
+    const cancelRes = await withTransaction(async (client) => {
+      await restoreOrderInventory(client, req.params.id, current.warehouse_id, "Order cancellation restore");
+      const updateRes = await client.query(
+        `
+        UPDATE orders
+        SET
+          customer_id = COALESCE($2, customer_id),
+          warehouse_id = COALESCE($3, warehouse_id),
+          status = COALESCE($4, status)
+        WHERE id = $1
+        RETURNING *
+        `,
+        [req.params.id, customer_id, warehouse_id, status],
+      );
+      return updateRes.rows[0];
+    });
+
+    return res.status(200).json(cancelRes);
+  }
+
   const result = await pg.query(
     `
     UPDATE orders
@@ -158,7 +202,7 @@ const update = test(async (req, res) => {
 const remove = test(async (req, res) => {
   const result = await withTransaction(async (client) => {
     const existingOrder = await client.query(
-      `SELECT * FROM orders WHERE id = $1`,
+      `SELECT * FROM orders WHERE id = $1 FOR UPDATE`,
       [req.params.id],
     );
 
@@ -181,21 +225,7 @@ const remove = test(async (req, res) => {
     }
 
     if (orderStatus === "processing") {
-      const items = await client.query(
-        `SELECT * FROM orders_items WHERE order_id = $1`,
-        [req.params.id],
-      );
-      for (const item of items.rows) {
-        await client.query(
-          `UPDATE inventory SET amount = amount + $1 WHERE product_id = $2 AND warehouse_id = $3`,
-          [item.quantity, item.product_id, order.warehouse_id],
-        );
-        await client.query(
-          `INSERT INTO stock_movements (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
-           VALUES ($1, $2, 'RECEIPT', $3, now(), $4, 'Order deletion reverse')`,
-          [item.product_id, order.warehouse_id, item.quantity, req.params.id],
-        );
-      }
+      await restoreOrderInventory(client, req.params.id, order.warehouse_id, "Order deletion reverse");
     }
 
     await client.query(`DELETE FROM orders_items WHERE order_id = $1`, [req.params.id]);
@@ -314,21 +344,7 @@ const updateStatus = test(async (req, res) => {
     nextStatus === "cancelled"
   ) {
     const cancelRes = await withTransaction(async (client) => {
-      const items = await client.query(
-        `SELECT * FROM orders_items WHERE order_id = $1`,
-        [req.params.id],
-      );
-      for (const item of items.rows) {
-        await client.query(
-          `UPDATE inventory SET amount = amount + $1 WHERE product_id = $2 AND warehouse_id = $3`,
-          [item.quantity, item.product_id, current.warehouse_id],
-        );
-        await client.query(
-          `INSERT INTO stock_movements (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
-           VALUES ($1, $2, 'RECEIPT', $3, now(), $4, 'Order cancellation restore')`,
-          [item.product_id, current.warehouse_id, item.quantity, req.params.id],
-        );
-      }
+      await restoreOrderInventory(client, req.params.id, current.warehouse_id, "Order cancellation restore");
 
       const updateRes = await client.query(
         `
@@ -361,7 +377,7 @@ const updateStatus = test(async (req, res) => {
 const cancelOrder = test(async (req, res) => {
   const result = await withTransaction(async (client) => {
     const existingOrder = await client.query(
-      `SELECT * FROM orders WHERE id = $1`,
+      `SELECT * FROM orders WHERE id = $1 FOR UPDATE`,
       [req.params.id],
     );
 
@@ -377,26 +393,16 @@ const cancelOrder = test(async (req, res) => {
 
     const orderStatus = order.status?.toLowerCase();
 
-    if (orderStatus === "completed" || orderStatus === "delivered" || orderStatus === "shipped") {
+    if (
+      orderStatus === "completed" ||
+      orderStatus === "delivered" ||
+      orderStatus === "shipped"
+    ) {
       return { status: 400, body: { message: "Order cannot be cancelled in its current state" } };
     }
 
     if (orderStatus === "processing") {
-      const items = await client.query(
-        `SELECT * FROM orders_items WHERE order_id = $1`,
-        [req.params.id],
-      );
-      for (const item of items.rows) {
-        await client.query(
-          `UPDATE inventory SET amount = amount + $1 WHERE product_id = $2 AND warehouse_id = $3`,
-          [item.quantity, item.product_id, order.warehouse_id],
-        );
-        await client.query(
-          `INSERT INTO stock_movements (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
-           VALUES ($1, $2, 'RECEIPT', $3, now(), $4, 'Order cancellation restore')`,
-          [item.product_id, order.warehouse_id, item.quantity, req.params.id],
-        );
-      }
+      await restoreOrderInventory(client, req.params.id, order.warehouse_id, "Order cancellation restore");
     }
 
     const updateRes = await client.query(
