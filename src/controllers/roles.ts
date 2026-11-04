@@ -2,13 +2,14 @@ import test from "../services/try-catch.js";
 import pg from "../config/db.js";
 import checkRow from "../services/rows-check.js";
 
-const getOwnerRoleId = async (): Promise<number> => {
+const getOwnerRoleId = async (client?: any): Promise<number> => {
   const envId = Number(process.env.OWNER_ID);
   if (Number.isInteger(envId) && envId > 0) {
     return envId;
   }
+  const db = client || pg;
   try {
-    const res = await pg.query(
+    const res = await db.query(
       `SELECT role_id FROM roles WHERE LOWER(name) = 'owner' LIMIT 1`,
     );
     if (res.rows.length > 0 && res.rows[0].role_id) {
@@ -17,25 +18,12 @@ const getOwnerRoleId = async (): Promise<number> => {
   } catch {
     // fallback
   }
-  return 1;
+  return 9;
 };
 
-const isOwnerRoleId = async (roleId: number): Promise<boolean> => {
-  const envId = Number(process.env.OWNER_ID);
-  if (Number.isInteger(envId) && envId > 0) {
-    return roleId === envId;
-  }
-  try {
-    const res = await pg.query(
-      `SELECT role_id FROM roles WHERE LOWER(name) = 'owner' LIMIT 1`,
-    );
-    if (res.rows.length > 0) {
-      return Number(res.rows[0].role_id) === roleId;
-    }
-  } catch {
-    // fallback
-  }
-  return roleId === 1;
+const isOwnerRoleId = async (roleId: number, client?: any): Promise<boolean> => {
+  const ownerId = await getOwnerRoleId(client);
+  return roleId === ownerId;
 };
 
 const readRoles = test(async (req, res) => {

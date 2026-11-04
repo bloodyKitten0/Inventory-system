@@ -37,6 +37,8 @@ The API currently provides:
 - HTTP-only session cookies
 - Authentication middleware
 - Role-Based Access Control (RBAC)
+- Resource-level customer ownership enforcement
+- Order state machine lifecycle controls
 - Permission-based authorization
 - Role management
 - Permission management

@@ -48,7 +48,7 @@ test("app registers 404 middleware returning Route not found", () => {
   });
 });
 
-test("error handler maps foreign key violation (23503) to 400", () => {
+test("error handler maps foreign key violation (23503) to 400 without leaking details", () => {
   assert.equal(typeof errorHandler, "function");
 
   const res = makeResponse();
@@ -59,11 +59,10 @@ test("error handler maps foreign key violation (23503) to 400", () => {
   assert.equal(res.statusCode, 400);
   assert.deepEqual(res.body, {
     message: "Foreign key violation: referenced record does not exist",
-    detail: err.detail,
   });
 });
 
-test("error handler maps unique violation (23505) to 409", () => {
+test("error handler maps unique violation (23505) to 409 without leaking details", () => {
   const res = makeResponse();
   const err = { code: "23505", detail: "Key (email)=(test@example.com) already exists." };
 
@@ -72,11 +71,10 @@ test("error handler maps unique violation (23505) to 409", () => {
   assert.equal(res.statusCode, 409);
   assert.deepEqual(res.body, {
     message: "Resource already exists",
-    detail: err.detail,
   });
 });
 
-test("error handler maps check constraint violation (23514) to 400", () => {
+test("error handler maps check constraint violation (23514) to 400 without leaking details", () => {
   const res = makeResponse();
   const err = { code: "23514", detail: "Failing row contains negative amount." };
 
@@ -85,7 +83,6 @@ test("error handler maps check constraint violation (23514) to 400", () => {
   assert.equal(res.statusCode, 400);
   assert.deepEqual(res.body, {
     message: "Check constraint violation",
-    detail: err.detail,
   });
 });
 

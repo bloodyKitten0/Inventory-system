@@ -1,10 +1,11 @@
 {
   "name": "inventory-system",
-  "version": "1.0.0",
-  "description": "A RESTful inventory and operations backend built with **Node.js, Express, PostgreSQL, Redis, and JavaScript**.",
+  "version": "2.0.0",
+  "description": "A RESTful inventory and operations backend built with Node.js, Express, PostgreSQL, Redis, and TypeScript.",
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
+    "pretest": "tsc",
     "start": "node dist/server.js",
     "dev": "ts-node src/server.ts",
     "test": "node --experimental-test-module-mocks --test dist/tests/unit/*/*.test.js",

@@ -60,6 +60,17 @@ const update = test(async (req, res) => {
   }
 
   const existing = existingResult.rows[0];
+
+  // Prevent inventory identity changes from silently moving stock (Item 17)
+  const productChanged = product_id !== undefined && product_id !== existing.product_id;
+  const warehouseChanged = warehouse_id !== undefined && warehouse_id !== existing.warehouse_id;
+
+  if ((productChanged || warehouseChanged) && existing.amount > 0) {
+    return res.status(400).json({
+      message: "Cannot change product or warehouse on an inventory record with existing stock",
+    });
+  }
+
   const newAmount = quantity !== undefined ? quantity : existing.amount;
   const newProductId = product_id !== undefined ? product_id : existing.product_id;
   const newWarehouseId = warehouse_id !== undefined ? warehouse_id : existing.warehouse_id;
@@ -80,15 +91,17 @@ const update = test(async (req, res) => {
 
   const delta = newAmount - existing.amount;
   if (delta !== 0) {
-    const movementType = delta > 0 ? "RECEIPT" : "SALE";
+    // Manual corrections use ADJUSTMENT, not SALE (Item 27)
+    const movementType = delta > 0 ? "RECEIPT" : "ADJUSTMENT";
+    const reason = delta > 0 ? "Inventory manual increase" : "Inventory manual adjustment";
     await pg.query(
       `
       INSERT INTO stock_movements
         (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
       VALUES
-        ($1, $2, $3, $4, now(), $5, 'Inventory quantity update')
+        ($1, $2, $3, $4, now(), $5, $6)
       `,
-      [newProductId, newWarehouseId, movementType, Math.abs(delta), req.params.id],
+      [newProductId, newWarehouseId, movementType, Math.abs(delta), req.params.id, reason],
     );
   }
 

@@ -1,7 +1,7 @@
 import express from "express";
 const router = express.Router();
 
-import { register, verifyAccount, login, logout, bootstrap } from "../security/auth.js";
+import { register, verifyAccount, resendVerification, login, logout, bootstrap } from "../security/auth.js";
 
 import validate from "../middlewares/validate.js";
 
@@ -160,6 +160,7 @@ router.post("/logout", logout);
  *       409:
  *         description: Username or email already exists
  */
+router.post("/resend-verification", resendVerification);
 router.post("/bootstrap", bootstrap);
 
 export default router;

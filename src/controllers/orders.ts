@@ -6,7 +6,18 @@ import readId from "../services/read-id.js";
 import deleteId from "../services/remove.js";
 import { one } from "../services/read-relation.js";
 
-const read = readAll("orders");
+const read = test(async (req, res) => {
+  if (req.user?.customerId) {
+    const result = await pg.query(
+      `SELECT * FROM orders WHERE customer_id = $1 ORDER BY id`,
+      [req.user.customerId],
+    );
+    return res.status(200).json(result.rows);
+  }
+
+  const result = await pg.query(`SELECT * FROM orders ORDER BY id`);
+  res.status(200).json(result.rows);
+});
 
 const readOne = test(async (req, res) => {
   const result = await pg.query(
@@ -28,9 +39,10 @@ const readOne = test(async (req, res) => {
 });
 
 const create = test(async (req, res) => {
-  const { customer_id, warehouse_id } = req.body;
+  const { warehouse_id } = req.body;
+  const effectiveCustomerId = req.user?.customerId ?? req.body.customer_id;
 
-  if (req.user?.customerId && customer_id !== req.user.customerId) {
+  if (req.user?.customerId && req.body.customer_id && req.body.customer_id !== req.user.customerId) {
     return res.status(403).json({ message: "Forbidden" });
   }
 
@@ -42,7 +54,7 @@ const create = test(async (req, res) => {
       ($1, $2, 'pending', now())
     RETURNING *
     `,
-    [customer_id, warehouse_id],
+    [effectiveCustomerId, warehouse_id],
   );
 
   res.status(201).json(result.rows[0]);
@@ -66,27 +78,54 @@ const update = test(async (req, res) => {
     return res.status(403).json({ message: "Forbidden" });
   }
 
-  if (
-    current.status &&
-    current.status.toLowerCase() !== "pending" &&
-    status &&
-    status.toLowerCase() === "pending"
-  ) {
-    return res.status(400).json({ message: "Processed orders cannot be reset to pending" });
+  // Prevent customer from reassigning customer_id on any order (even pending)
+  if (req.user?.customerId && customer_id !== undefined && customer_id !== current.customer_id) {
+    return res.status(403).json({ message: "Forbidden" });
   }
 
-  if (
-    current.status &&
-    current.status.toLowerCase() === "pending" &&
-    status &&
-    status.toLowerCase() === "processing"
-  ) {
-    return res.status(400).json({
-      message: "Orders cannot change status to processing without processing inventory",
-    });
+  const currentStatus = current.status?.toLowerCase();
+  const nextStatus = status?.toLowerCase();
+
+  if (currentStatus === "completed" || currentStatus === "cancelled") {
+    if (nextStatus && nextStatus !== currentStatus) {
+      return res.status(400).json({
+        message: `Cannot transition order from terminal state '${current.status}'`,
+      });
+    }
   }
 
-  if (current.status && current.status.toLowerCase() !== "pending") {
+  if (nextStatus && nextStatus !== currentStatus) {
+    if (currentStatus === "pending") {
+      if (nextStatus === "processing") {
+        return res.status(400).json({
+          message: "Orders cannot change status to processing without processing inventory",
+        });
+      }
+      if (nextStatus === "completed") {
+        return res.status(400).json({
+          message: "Cannot directly complete a pending order without fulfillment",
+        });
+      }
+      if (nextStatus !== "cancelled") {
+        return res.status(400).json({
+          message: `Invalid status transition from '${current.status}' to '${status}'`,
+        });
+      }
+    } else if (currentStatus === "processing") {
+      if (nextStatus === "pending") {
+        return res.status(400).json({
+          message: "Processed orders cannot be reset to pending",
+        });
+      }
+      if (nextStatus !== "completed" && nextStatus !== "cancelled") {
+        return res.status(400).json({
+          message: `Invalid status transition from '${current.status}' to '${status}'`,
+        });
+      }
+    }
+  }
+
+  if (currentStatus !== "pending") {
     if (customer_id !== undefined && customer_id !== current.customer_id) {
       return res.status(400).json({
         message: "Order customer cannot be reassigned after processing",
@@ -127,7 +166,18 @@ const remove = test(async (req, res) => {
 
   const order = existingOrder.rows[0];
 
-  if (order.status && order.status.toLowerCase() === "processing") {
+  if (req.user?.customerId && order.customer_id !== req.user.customerId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  const orderStatus = order.status?.toLowerCase();
+  if (orderStatus === "completed") {
+    return res.status(400).json({
+      message: "Completed orders are immutable historical records and cannot be deleted",
+    });
+  }
+
+  if (orderStatus === "processing") {
     const items = await pg.query(
       `SELECT * FROM orders_items WHERE order_id = $1`,
       [req.params.id],
@@ -172,13 +222,26 @@ const customerOrders = test(async (req, res) => {
   res.status(200).json(result.rows);
 });
 
-const warehouseOrders = one(
-  "orders",
-  "warehouses",
-  "id",
-  "warehouse_id",
-  "warehouse_id",
-);
+const warehouseOrders = test(async (req, res) => {
+  const warehouseId = req.params.id;
+
+  if (req.user?.customerId) {
+    const result = await pg.query(
+      `SELECT * FROM orders WHERE warehouse_id = $1 AND customer_id = $2 ORDER BY id`,
+      [warehouseId, req.user.customerId],
+    );
+    return res.status(200).json(result.rows);
+  }
+
+  const result = await pg.query(
+    `SELECT * FROM orders WHERE warehouse_id = $1 ORDER BY id`,
+    [warehouseId],
+  );
+  if (!checkRow(result)) {
+    return res.status(404).json("relation not found");
+  }
+  res.status(200).json(result.rows);
+});
 
 const updateStatus = test(async (req, res) => {
   const { status } = req.body;
@@ -198,31 +261,51 @@ const updateStatus = test(async (req, res) => {
     return res.status(403).json({ message: "Forbidden" });
   }
 
-  if (
-    current.status &&
-    current.status.toLowerCase() !== "pending" &&
-    status &&
-    status.toLowerCase() === "pending"
-  ) {
-    return res.status(400).json({ message: "Processed orders cannot be reset to pending" });
+  const currentStatus = current.status?.toLowerCase();
+  const nextStatus = status?.toLowerCase();
+
+  if (currentStatus === "completed" || currentStatus === "cancelled") {
+    if (nextStatus && nextStatus !== currentStatus) {
+      return res.status(400).json({
+        message: `Cannot transition order from terminal state '${current.status}'`,
+      });
+    }
+  }
+
+  if (nextStatus && nextStatus !== currentStatus) {
+    if (currentStatus === "pending") {
+      if (nextStatus === "processing") {
+        return res.status(400).json({
+          message: "Orders cannot change status to processing without processing inventory",
+        });
+      }
+      if (nextStatus === "completed") {
+        return res.status(400).json({
+          message: "Cannot directly complete a pending order without fulfillment",
+        });
+      }
+      if (nextStatus !== "cancelled") {
+        return res.status(400).json({
+          message: `Invalid status transition from '${current.status}' to '${status}'`,
+        });
+      }
+    } else if (currentStatus === "processing") {
+      if (nextStatus === "pending") {
+        return res.status(400).json({
+          message: "Processed orders cannot be reset to pending",
+        });
+      }
+      if (nextStatus !== "completed" && nextStatus !== "cancelled") {
+        return res.status(400).json({
+          message: `Invalid status transition from '${current.status}' to '${status}'`,
+        });
+      }
+    }
   }
 
   if (
-    current.status &&
-    current.status.toLowerCase() === "pending" &&
-    status &&
-    status.toLowerCase() === "processing"
-  ) {
-    return res.status(400).json({
-      message: "Orders cannot change status to processing without processing inventory",
-    });
-  }
-
-  if (
-    current.status &&
-    current.status.toLowerCase() === "processing" &&
-    status &&
-    status.toLowerCase() === "cancelled"
+    currentStatus === "processing" &&
+    nextStatus === "cancelled"
   ) {
     const items = await pg.query(
       `SELECT * FROM orders_items WHERE order_id = $1`,
@@ -270,15 +353,13 @@ const cancelOrder = test(async (req, res) => {
     return res.status(403).json({ message: "Forbidden" });
   }
 
-  if (
-    order.status &&
-    (order.status.toLowerCase() === "delivered" ||
-      order.status.toLowerCase() === "shipped")
-  ) {
+  const orderStatus = order.status?.toLowerCase();
+
+  if (orderStatus === "completed" || orderStatus === "delivered" || orderStatus === "shipped") {
     return res.status(400).json({ message: "Order cannot be cancelled in its current state" });
   }
 
-  if (order.status && order.status.toLowerCase() === "processing") {
+  if (orderStatus === "processing") {
     const items = await pg.query(
       `SELECT * FROM orders_items WHERE order_id = $1`,
       [req.params.id],

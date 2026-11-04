@@ -11,7 +11,24 @@ import {
   verifyPassword,
 } from "../services/password-hashing.js";
 import { createSession, deleteSession, SESSION_TTL } from "../services/sessions.js";
-const CUSTOMER_ROLE_ID = Number(process.env.CUSTOMER_ID);
+const getCustomerRoleId = async (client?: any): Promise<number> => {
+  const envId = Number(process.env.CUSTOMER_ID);
+  if (Number.isInteger(envId) && envId > 0) {
+    return envId;
+  }
+  const db = client || pg;
+  try {
+    const res = await db.query(
+      `SELECT role_id FROM roles WHERE LOWER(name) = 'customer' LIMIT 1`,
+    );
+    if (res.rows.length > 0 && res.rows[0].role_id) {
+      return Number(res.rows[0].role_id);
+    }
+  } catch {
+    // fallback
+  }
+  return 8;
+};
 
 const register = test(async (req, res) => {
   const { customer_name, username, email, password, shipping_address } =
@@ -64,6 +81,8 @@ const register = test(async (req, res) => {
       [customer.rows[0].id, cleanUsername, cleanEmail, passwordHash],
     );
 
+    const customerRoleId = await getCustomerRoleId(transaction);
+
     await transaction.query(
       `
       INSERT INTO account_roles
@@ -71,7 +90,7 @@ const register = test(async (req, res) => {
       VALUES
         ($1, $2)
       `,
-      [account.rows[0].account_id, CUSTOMER_ROLE_ID],
+      [account.rows[0].account_id, customerRoleId],
     );
 
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
@@ -201,7 +220,7 @@ const login = test(async (req, res) => {
     });
   }
 
-  const sessionId = await createSession(user.account_id);
+  const sessionId = await createSession(user.account_id, user.customer_id);
 
   res
     .cookie("sessionId", sessionId, {
@@ -272,7 +291,7 @@ const bootstrap = test(async (req, res) => {
     `SELECT role_id FROM roles WHERE LOWER(name) = 'owner' LIMIT 1`,
   );
   const ownerRoleId =
-    ownerRoleRes.rows[0]?.role_id || Number(process.env.OWNER_ID) || 1;
+    ownerRoleRes.rows[0]?.role_id || Number(process.env.OWNER_ID) || 9;
 
   const passwordHash = await hashPassword(password);
 
@@ -313,9 +332,60 @@ const bootstrap = test(async (req, res) => {
   }
 });
 
+const resendVerification = test(async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ message: "Email is required" });
+  }
+
+  const cleanEmail = String(email).trim().toLowerCase();
+  const accountRes = await pg.query(
+    `SELECT account_id, status FROM accounts WHERE email = $1`,
+    [cleanEmail],
+  );
+
+  if (accountRes.rows.length === 0) {
+    return res.status(404).json({ message: "Account not found" });
+  }
+
+  const account = accountRes.rows[0];
+  if (account.status !== "pending") {
+    return res.status(400).json({ message: "Account is already active or cannot be verified" });
+  }
+
+  const rawToken = generateVerificationToken();
+  const hashedToken = hashVerificationToken(rawToken);
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+  const transaction = await pg.connect();
+  try {
+    await transaction.query("BEGIN");
+    await transaction.query(
+      `DELETE FROM account_verification_tokens WHERE account_id = $1`,
+      [account.account_id],
+    );
+    await transaction.query(
+      `INSERT INTO account_verification_tokens (account_id, token_hash, expires_at, created_at)
+       VALUES ($1, $2, $3, now())`,
+      [account.account_id, hashedToken, expiresAt],
+    );
+    await transaction.query("COMMIT");
+  } catch (err) {
+    await transaction.query("ROLLBACK");
+    throw err;
+  } finally {
+    transaction.release();
+  }
+
+  await sendVerificationEmail(cleanEmail, rawToken);
+
+  res.status(200).json({ message: "Verification email resent successfully" });
+});
+
 export {
   register,
   verifyAccount,
+  resendVerification,
   login,
   logout,
   bootstrap,

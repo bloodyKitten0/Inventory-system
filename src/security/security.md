@@ -438,38 +438,29 @@ means:
 Would additionally ask:
 
 > May this account update inventory record #184?
+> Does this order belong to the authenticated customer?
 
-The current system primarily implements the first layer.
-
-The second layer is incomplete.
+The system implements role-based access control combined with resource-level ownership for customer-facing resources (orders, order items, and relationship endpoints).
 
 ---
 
-# 11. Resource-Level Authorization Gap
+# 11. Resource-Level Authorization
 
-Resource-level authorization should eventually be applied to resources such as:
+Resource-level authorization is enforced across customer-associated resources:
 
-- Customers
-- Orders
-- Order items
-- Accounts
-- Other user-associated records
-
-For example:
+- **Orders**: A customer can only view, update, cancel, or delete their own orders. Customer queries to order collections (`GET /orders`, `GET /orders/warehouse/:id`) are strictly scoped to the authenticated customer's ID.
+- **Order Items**: Order items can only be created on pending orders belonging to the customer, and item mutations / queries are scoped to the parent order's customer.
+- **Order State Transitions**: Strict state machine transitions (`pending` -> `processing`/`cancelled`, `processing` -> `completed`/`cancelled`) prevent tampering or terminal-state reactivation.
 
 ```text
 Authenticated Customer
         ↓
-GET /orders/125
+GET /orders/:id
         ↓
-Does order 125 belong to this customer?
+Does order belong to req.user.customerId?
         ↓
-Allow / Deny
+Allow (200) / Deny (403 Forbidden)
 ```
-
-Changing `/orders/125` to `/orders/126` must not grant access merely because the requester possesses a general read permission.
-
-This remains one of the most important security improvements in the project.
 
 ---
 
@@ -1038,7 +1029,8 @@ Potential vectors include:
 | Row-level locking                 | **Implemented for key operations** |
 | Authorization unit tests          | **Implemented**                    |
 | Validation unit tests             | **Implemented**                    |
-| Resource-level authorization      | **Incomplete**                     |
+| Resource-level authorization      | **Implemented for Orders & Items** |
+| Order state machine transitions   | **Implemented**                    |
 | Integration security tests        | **Incomplete**                     |
 | Rate limiting                     | **Not implemented**                |
 | Explicit CORS policy              | **Not implemented**                |

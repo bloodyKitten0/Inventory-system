@@ -69,7 +69,6 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   if (err?.code === "23503") {
     res.status(400).json({
       message: "Foreign key violation: referenced record does not exist",
-      detail: err.detail,
     });
     return;
   }
@@ -77,7 +76,6 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   if (err?.code === "23505") {
     res.status(409).json({
       message: "Resource already exists",
-      detail: err.detail,
     });
     return;
   }
@@ -85,7 +83,6 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   if (err?.code === "23514") {
     res.status(400).json({
       message: "Check constraint violation",
-      detail: err.detail,
     });
     return;
   }
