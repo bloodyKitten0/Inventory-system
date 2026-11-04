@@ -5,6 +5,7 @@ import readAll from "../services/read-all.js";
 import readId from "../services/read-id.js";
 import deleteId from "../services/remove.js";
 import { one } from "../services/read-relation.js";
+import { withTransaction } from "../services/transaction.js";
 
 const read = test(async (req, res) => {
   if (req.user?.customerId) {
@@ -155,53 +156,58 @@ const update = test(async (req, res) => {
 });
 
 const remove = test(async (req, res) => {
-  const existingOrder = await pg.query(
-    `SELECT * FROM orders WHERE id = $1`,
-    [req.params.id],
-  );
-
-  if (!checkRow(existingOrder)) {
-    return res.status(404).json("order not found");
-  }
-
-  const order = existingOrder.rows[0];
-
-  if (req.user?.customerId && order.customer_id !== req.user.customerId) {
-    return res.status(403).json({ message: "Forbidden" });
-  }
-
-  const orderStatus = order.status?.toLowerCase();
-  if (orderStatus === "completed") {
-    return res.status(400).json({
-      message: "Completed orders are immutable historical records and cannot be deleted",
-    });
-  }
-
-  if (orderStatus === "processing") {
-    const items = await pg.query(
-      `SELECT * FROM orders_items WHERE order_id = $1`,
+  const result = await withTransaction(async (client) => {
+    const existingOrder = await client.query(
+      `SELECT * FROM orders WHERE id = $1`,
       [req.params.id],
     );
-    for (const item of items.rows) {
-      await pg.query(
-        `UPDATE inventory SET amount = amount + $1 WHERE product_id = $2 AND warehouse_id = $3`,
-        [item.quantity, item.product_id, order.warehouse_id],
-      );
-      await pg.query(
-        `INSERT INTO stock_movements (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
-         VALUES ($1, $2, 'RECEIPT', $3, now(), $4, 'Order deletion reverse')`,
-        [item.product_id, order.warehouse_id, item.quantity, req.params.id],
-      );
+
+    if (!checkRow(existingOrder)) {
+      return { status: 404, body: "order not found" };
     }
-  }
 
-  await pg.query(`DELETE FROM orders_items WHERE order_id = $1`, [req.params.id]);
-  const result = await pg.query(
-    `DELETE FROM orders WHERE id = $1 RETURNING *`,
-    [req.params.id],
-  );
+    const order = existingOrder.rows[0];
 
-  res.status(200).json(result.rows[0]);
+    if (req.user?.customerId && order.customer_id !== req.user.customerId) {
+      return { status: 403, body: { message: "Forbidden" } };
+    }
+
+    const orderStatus = order.status?.toLowerCase();
+    if (orderStatus === "completed") {
+      return {
+        status: 400,
+        body: { message: "Completed orders are immutable historical records and cannot be deleted" },
+      };
+    }
+
+    if (orderStatus === "processing") {
+      const items = await client.query(
+        `SELECT * FROM orders_items WHERE order_id = $1`,
+        [req.params.id],
+      );
+      for (const item of items.rows) {
+        await client.query(
+          `UPDATE inventory SET amount = amount + $1 WHERE product_id = $2 AND warehouse_id = $3`,
+          [item.quantity, item.product_id, order.warehouse_id],
+        );
+        await client.query(
+          `INSERT INTO stock_movements (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
+           VALUES ($1, $2, 'RECEIPT', $3, now(), $4, 'Order deletion reverse')`,
+          [item.product_id, order.warehouse_id, item.quantity, req.params.id],
+        );
+      }
+    }
+
+    await client.query(`DELETE FROM orders_items WHERE order_id = $1`, [req.params.id]);
+    const deleteRes = await client.query(
+      `DELETE FROM orders WHERE id = $1 RETURNING *`,
+      [req.params.id],
+    );
+
+    return { status: 200, body: deleteRes.rows[0] };
+  });
+
+  res.status(result.status).json(result.body);
 });
 
 const customerOrders = test(async (req, res) => {
@@ -307,21 +313,36 @@ const updateStatus = test(async (req, res) => {
     currentStatus === "processing" &&
     nextStatus === "cancelled"
   ) {
-    const items = await pg.query(
-      `SELECT * FROM orders_items WHERE order_id = $1`,
-      [req.params.id],
-    );
-    for (const item of items.rows) {
-      await pg.query(
-        `UPDATE inventory SET amount = amount + $1 WHERE product_id = $2 AND warehouse_id = $3`,
-        [item.quantity, item.product_id, current.warehouse_id],
+    const cancelRes = await withTransaction(async (client) => {
+      const items = await client.query(
+        `SELECT * FROM orders_items WHERE order_id = $1`,
+        [req.params.id],
       );
-      await pg.query(
-        `INSERT INTO stock_movements (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
-         VALUES ($1, $2, 'RECEIPT', $3, now(), $4, 'Order cancellation restore')`,
-        [item.product_id, current.warehouse_id, item.quantity, req.params.id],
+      for (const item of items.rows) {
+        await client.query(
+          `UPDATE inventory SET amount = amount + $1 WHERE product_id = $2 AND warehouse_id = $3`,
+          [item.quantity, item.product_id, current.warehouse_id],
+        );
+        await client.query(
+          `INSERT INTO stock_movements (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
+           VALUES ($1, $2, 'RECEIPT', $3, now(), $4, 'Order cancellation restore')`,
+          [item.product_id, current.warehouse_id, item.quantity, req.params.id],
+        );
+      }
+
+      const updateRes = await client.query(
+        `
+        UPDATE orders
+        SET status = $1
+        WHERE id = $2
+        RETURNING *
+        `,
+        [status, req.params.id],
       );
-    }
+      return updateRes.rows[0];
+    });
+
+    return res.status(200).json(cancelRes);
   }
 
   const result = await pg.query(
@@ -338,56 +359,60 @@ const updateStatus = test(async (req, res) => {
 });
 
 const cancelOrder = test(async (req, res) => {
-  const existingOrder = await pg.query(
-    `SELECT * FROM orders WHERE id = $1`,
-    [req.params.id],
-  );
-
-  if (!checkRow(existingOrder)) {
-    return res.status(404).json("order not found or can't be canceled");
-  }
-
-  const order = existingOrder.rows[0];
-
-  if (req.user?.customerId && order.customer_id !== req.user.customerId) {
-    return res.status(403).json({ message: "Forbidden" });
-  }
-
-  const orderStatus = order.status?.toLowerCase();
-
-  if (orderStatus === "completed" || orderStatus === "delivered" || orderStatus === "shipped") {
-    return res.status(400).json({ message: "Order cannot be cancelled in its current state" });
-  }
-
-  if (orderStatus === "processing") {
-    const items = await pg.query(
-      `SELECT * FROM orders_items WHERE order_id = $1`,
+  const result = await withTransaction(async (client) => {
+    const existingOrder = await client.query(
+      `SELECT * FROM orders WHERE id = $1`,
       [req.params.id],
     );
-    for (const item of items.rows) {
-      await pg.query(
-        `UPDATE inventory SET amount = amount + $1 WHERE product_id = $2 AND warehouse_id = $3`,
-        [item.quantity, item.product_id, order.warehouse_id],
-      );
-      await pg.query(
-        `INSERT INTO stock_movements (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
-         VALUES ($1, $2, 'RECEIPT', $3, now(), $4, 'Order cancellation restore')`,
-        [item.product_id, order.warehouse_id, item.quantity, req.params.id],
-      );
+
+    if (!checkRow(existingOrder)) {
+      return { status: 404, body: "order not found or can't be canceled" };
     }
-  }
 
-  const result = await pg.query(
-    `
-    UPDATE orders
-    SET status = 'cancelled'
-    WHERE id = $1
-    RETURNING *
-    `,
-    [req.params.id],
-  );
+    const order = existingOrder.rows[0];
 
-  res.status(200).json(result.rows[0]);
+    if (req.user?.customerId && order.customer_id !== req.user.customerId) {
+      return { status: 403, body: { message: "Forbidden" } };
+    }
+
+    const orderStatus = order.status?.toLowerCase();
+
+    if (orderStatus === "completed" || orderStatus === "delivered" || orderStatus === "shipped") {
+      return { status: 400, body: { message: "Order cannot be cancelled in its current state" } };
+    }
+
+    if (orderStatus === "processing") {
+      const items = await client.query(
+        `SELECT * FROM orders_items WHERE order_id = $1`,
+        [req.params.id],
+      );
+      for (const item of items.rows) {
+        await client.query(
+          `UPDATE inventory SET amount = amount + $1 WHERE product_id = $2 AND warehouse_id = $3`,
+          [item.quantity, item.product_id, order.warehouse_id],
+        );
+        await client.query(
+          `INSERT INTO stock_movements (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
+           VALUES ($1, $2, 'RECEIPT', $3, now(), $4, 'Order cancellation restore')`,
+          [item.product_id, order.warehouse_id, item.quantity, req.params.id],
+        );
+      }
+    }
+
+    const updateRes = await client.query(
+      `
+      UPDATE orders
+      SET status = 'cancelled'
+      WHERE id = $1
+      RETURNING *
+      `,
+      [req.params.id],
+    );
+
+    return { status: 200, body: updateRes.rows[0] };
+  });
+
+  res.status(result.status).json(result.body);
 });
 
 const orderDetails = test(async (req, res) => {

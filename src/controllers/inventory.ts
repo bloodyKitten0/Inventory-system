@@ -5,6 +5,7 @@ import readAll from "../services/read-all.js";
 import readId from "../services/read-id.js";
 import deleteId from "../services/remove.js";
 import { two } from "../services/read-relation.js";
+import { withTransaction } from "../services/transaction.js";
 
 const read = readAll("inventory");
 
@@ -13,30 +14,34 @@ const readOne = readId("inventory", "inventory");
 const create = test(async (req, res) => {
   const { product_id, warehouse_id, quantity } = req.body;
 
-  const result = await pg.query(
-    `
-    INSERT INTO inventory
-      (product_id, warehouse_id, amount, last_update)
-    VALUES
-      ($1, $2, $3, now())
-    RETURNING *
-    `,
-    [product_id, warehouse_id, quantity],
-  );
-
-  const created = result.rows[0];
-
-  if (quantity > 0) {
-    await pg.query(
+  const created = await withTransaction(async (client) => {
+    const result = await client.query(
       `
-      INSERT INTO stock_movements
-        (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
+      INSERT INTO inventory
+        (product_id, warehouse_id, amount, last_update)
       VALUES
-        ($1, $2, 'RECEIPT', $3, now(), $4, 'Initial stock')
+        ($1, $2, $3, now())
+      RETURNING *
       `,
-      [product_id, warehouse_id, quantity, created?.id],
+      [product_id, warehouse_id, quantity],
     );
-  }
+
+    const record = result.rows[0];
+
+    if (quantity > 0) {
+      await client.query(
+        `
+        INSERT INTO stock_movements
+          (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
+        VALUES
+          ($1, $2, 'RECEIPT', $3, now(), $4, 'Initial stock')
+        `,
+        [product_id, warehouse_id, quantity, record?.id],
+      );
+    }
+
+    return record;
+  });
 
   res.status(201).json(created);
 });
@@ -44,108 +49,120 @@ const create = test(async (req, res) => {
 const update = test(async (req, res) => {
   const { product_id, warehouse_id, quantity } = req.body;
 
-  const existingResult = await pg.query(
-    `
-    SELECT *
-    FROM inventory
-    WHERE id = $1
-    `,
-    [req.params.id],
-  );
-
-  if (!checkRow(existingResult)) {
-    return res.status(404).json({
-      message: "Inventory not found",
-    });
-  }
-
-  const existing = existingResult.rows[0];
-
-  // Prevent inventory identity changes from silently moving stock (Item 17)
-  const productChanged = product_id !== undefined && product_id !== existing.product_id;
-  const warehouseChanged = warehouse_id !== undefined && warehouse_id !== existing.warehouse_id;
-
-  if ((productChanged || warehouseChanged) && existing.amount > 0) {
-    return res.status(400).json({
-      message: "Cannot change product or warehouse on an inventory record with existing stock",
-    });
-  }
-
-  const newAmount = quantity !== undefined ? quantity : existing.amount;
-  const newProductId = product_id !== undefined ? product_id : existing.product_id;
-  const newWarehouseId = warehouse_id !== undefined ? warehouse_id : existing.warehouse_id;
-
-  const result = await pg.query(
-    `
-    UPDATE inventory
-    SET
-      product_id = COALESCE($2, product_id),
-      warehouse_id = COALESCE($3, warehouse_id),
-      amount = COALESCE($4, amount),
-      last_update = now()
-    WHERE id = $1
-    RETURNING *
-    `,
-    [req.params.id, product_id, warehouse_id, quantity],
-  );
-
-  const delta = newAmount - existing.amount;
-  if (delta !== 0) {
-    // Manual corrections use ADJUSTMENT, not SALE (Item 27)
-    const movementType = delta > 0 ? "RECEIPT" : "ADJUSTMENT";
-    const reason = delta > 0 ? "Inventory manual increase" : "Inventory manual adjustment";
-    await pg.query(
+  const result = await withTransaction(async (client) => {
+    const existingResult = await client.query(
       `
-      INSERT INTO stock_movements
-        (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
-      VALUES
-        ($1, $2, $3, $4, now(), $5, $6)
+      SELECT *
+      FROM inventory
+      WHERE id = $1
       `,
-      [newProductId, newWarehouseId, movementType, Math.abs(delta), req.params.id, reason],
+      [req.params.id],
     );
-  }
 
-  res.status(200).json(result.rows[0]);
+    if (!checkRow(existingResult)) {
+      return {
+        status: 404,
+        body: { message: "Inventory not found" },
+      };
+    }
+
+    const existing = existingResult.rows[0];
+
+    // Prevent inventory identity changes from silently moving stock (Item 17)
+    const productChanged = product_id !== undefined && product_id !== existing.product_id;
+    const warehouseChanged = warehouse_id !== undefined && warehouse_id !== existing.warehouse_id;
+
+    if ((productChanged || warehouseChanged) && existing.amount > 0) {
+      return {
+        status: 400,
+        body: {
+          message: "Cannot change product or warehouse on an inventory record with existing stock",
+        },
+      };
+    }
+
+    const newAmount = quantity !== undefined ? quantity : existing.amount;
+    const newProductId = product_id !== undefined ? product_id : existing.product_id;
+    const newWarehouseId = warehouse_id !== undefined ? warehouse_id : existing.warehouse_id;
+
+    const updateRes = await client.query(
+      `
+      UPDATE inventory
+      SET
+        product_id = COALESCE($2, product_id),
+        warehouse_id = COALESCE($3, warehouse_id),
+        amount = COALESCE($4, amount),
+        last_update = now()
+      WHERE id = $1
+      RETURNING *
+      `,
+      [req.params.id, product_id, warehouse_id, quantity],
+    );
+
+    const delta = newAmount - existing.amount;
+    if (delta !== 0) {
+      // Manual corrections use ADJUSTMENT, not SALE (Item 27)
+      const movementType = delta > 0 ? "RECEIPT" : "ADJUSTMENT";
+      const reason = delta > 0 ? "Inventory manual increase" : "Inventory manual adjustment";
+      await client.query(
+        `
+        INSERT INTO stock_movements
+          (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
+        VALUES
+          ($1, $2, $3, $4, now(), $5, $6)
+        `,
+        [newProductId, newWarehouseId, movementType, Math.abs(delta), req.params.id, reason],
+      );
+    }
+
+    return { status: 200, body: updateRes.rows[0] };
+  });
+
+  res.status(result.status).json(result.body);
 });
 
 const remove = test(async (req, res) => {
-  const existingResult = await pg.query(
-    `
-    SELECT *
-    FROM inventory
-    WHERE id = $1
-    `,
-    [req.params.id],
-  );
-
-  if (!checkRow(existingResult)) {
-    return res.status(404).json("inventory not found");
-  }
-
-  const existing = existingResult.rows[0];
-
-  if (existing.amount > 0) {
-    await pg.query(
+  const result = await withTransaction(async (client) => {
+    const existingResult = await client.query(
       `
-      INSERT INTO stock_movements
-        (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
-      VALUES
-        ($1, $2, 'ADJUSTMENT', $3, now(), $4, 'Inventory deletion write-off')
+      SELECT *
+      FROM inventory
+      WHERE id = $1
       `,
-      [existing.product_id, existing.warehouse_id, existing.amount, req.params.id],
+      [req.params.id],
     );
-  }
 
-  const result = await pg.query(
-    `
-    DELETE FROM inventory
-    WHERE id = $1
-    RETURNING *
-    `,
-    [req.params.id],
-  );
+    if (!checkRow(existingResult)) {
+      return { status: 404, body: "inventory not found" };
+    }
 
-  res.status(200).json(result.rows[0]);
+    const existing = existingResult.rows[0];
+
+    if (existing.amount > 0) {
+      await client.query(
+        `
+        INSERT INTO stock_movements
+          (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
+        VALUES
+          ($1, $2, 'ADJUSTMENT', $3, now(), $4, 'Inventory deletion write-off')
+        `,
+        [existing.product_id, existing.warehouse_id, existing.amount, req.params.id],
+      );
+    }
+
+    const deleteRes = await client.query(
+      `
+      DELETE FROM inventory
+      WHERE id = $1
+      RETURNING *
+      `,
+      [req.params.id],
+    );
+
+    return { status: 200, body: deleteRes.rows[0] };
+  });
+
+  res.status(result.status).json(result.body);
 });
 
 const productInventory = two(
