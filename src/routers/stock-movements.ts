@@ -39,37 +39,7 @@ router.use(authenticate);
  *       200:
  *         description: Stock movements retrieved successfully
  */
-router.get("/stock-movements", requirePermission("stock_movement.read"), read);
-
-/**
- * @swagger
- * /stock-movements/{id}:
- *   get:
- *     summary: Get one stock movement
- *     tags: [Stock Movements]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *           minimum: 1
- *         description: Stock movement ID
- *         example: 1
- *     responses:
- *       200:
- *         description: Stock movement retrieved successfully
- *       400:
- *         description: Invalid stock movement ID
- *       404:
- *         description: Stock movement not found
- */
-router.get(
-  "/stock-movements/:id",
-  validate(idValidator),
-  requirePermission("stock_movement.read"),
-  readOne,
-);
+router.get("/", requirePermission("stock_movement.read"), read);
 
 /**
  * @swagger
@@ -95,7 +65,7 @@ router.get(
  *         description: No movements found
  */
 router.get(
-  "/stock-movements/product/:id",
+  "/product/:id",
   validate(productId),
   requirePermission("stock_movement.read"),
   productMovements,
@@ -125,7 +95,7 @@ router.get(
  *         description: No movements found
  */
 router.get(
-  "/stock-movements/warehouse/:id",
+  "/warehouse/:id",
   validate(warehouseId),
   requirePermission("stock_movement.read"),
   warehouseMovements,
@@ -155,10 +125,40 @@ router.get(
  *         description: No movements found
  */
 router.get(
-  "/stock-movements/product-details/:id",
+  "/product-details/:id",
   validate(productId),
   requirePermission("stock_movement.read"),
   productWarehouseMovements,
+);
+
+/**
+ * @swagger
+ * /stock-movements/{id}:
+ *   get:
+ *     summary: Get one stock movement
+ *     tags: [Stock Movements]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Stock movement ID
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Stock movement retrieved successfully
+ *       400:
+ *         description: Invalid stock movement ID
+ *       404:
+ *         description: Stock movement not found
+ */
+router.get(
+  "/:id",
+  validate(idValidator),
+  requirePermission("stock_movement.read"),
+  readOne,
 );
 
 export default router;

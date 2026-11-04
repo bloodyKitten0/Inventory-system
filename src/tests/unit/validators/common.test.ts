@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   positiveInteger,
+  nonNegativeInteger,
   nonNegativeNumber,
   positiveNumber,
   requiredString,
@@ -15,6 +16,15 @@ test("positiveInteger has the correct validation rules", () => {
     type: "number",
     integer: true,
     min: 1,
+  });
+});
+
+test("nonNegativeInteger has the correct validation rules", () => {
+  assert.deepEqual(nonNegativeInteger, {
+    required: true,
+    type: "number",
+    integer: true,
+    min: 0,
   });
 });
 

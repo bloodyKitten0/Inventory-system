@@ -43,7 +43,7 @@ test("create validates non-negative amount", () => {
   assert.deepEqual(validators.create.body.quantity, {
     required: true,
     type: "number",
-    finite: true,
+    integer: true,
     min: 0,
   });
 });
@@ -55,11 +55,11 @@ test("update validates ID, product, warehouse, and amount", () => {
   assert.ok(validators.update.body.quantity);
 });
 
-test("adjust requires a finite non-zero number", () => {
+test("adjust requires an integer non-zero number", () => {
   const rule = validators.adjust.body.change;
 
   assert.equal(rule.type, "number");
-  assert.equal(rule.finite, true);
+  assert.equal(rule.integer, true);
   assert.equal(rule.notEqual, 0);
 });
 
@@ -76,8 +76,8 @@ test("checkAvailability validates amount, product, and warehouse", () => {
   assert.deepEqual(validators.checkAvailability.body.quantity, {
     required: true,
     type: "number",
-    finite: true,
-    min: 0,
+    integer: true,
+    min: 1,
   });
 
   assert.deepEqual(validators.checkAvailability.body.product_id, {

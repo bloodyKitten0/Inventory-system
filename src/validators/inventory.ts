@@ -1,4 +1,4 @@
-import { positiveInteger, nonNegativeNumber } from "./common.js";
+import { positiveInteger, nonNegativeInteger, nonNegativeNumber } from "./common.js";
 
 const id = {
   params: {
@@ -10,7 +10,7 @@ const create = {
   body: {
     product_id: positiveInteger,
     warehouse_id: positiveInteger,
-    quantity: nonNegativeNumber,
+    quantity: nonNegativeInteger,
   },
 };
 
@@ -22,7 +22,7 @@ const update = {
   body: {
     product_id: positiveInteger,
     warehouse_id: positiveInteger,
-    quantity: nonNegativeNumber,
+    quantity: nonNegativeInteger,
   },
 };
 
@@ -35,7 +35,7 @@ const adjust = {
     change: {
       required: true,
       type: "number",
-      finite: true,
+      integer: true,
       notEqual: 0,
     },
   },
@@ -49,7 +49,7 @@ const lowStock = {
 
 const checkAvailability = {
   body: {
-    quantity: nonNegativeNumber,
+    quantity: positiveInteger,
     product_id: positiveInteger,
     warehouse_id: positiveInteger,
   },

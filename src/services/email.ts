@@ -12,8 +12,13 @@ const transporter = nodemailer.createTransport({
   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
 });
 
+let isVerified = false;
+
 const sendVerificationEmail = async (email: string, rawToken: string) => {
-  await transporter.verify();
+  if (!isVerified) {
+    await transporter.verify();
+    isVerified = true;
+  }
   await transporter.sendMail({
     from: process.env.SMTP_FROM,
     to: email,

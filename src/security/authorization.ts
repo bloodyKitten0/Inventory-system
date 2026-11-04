@@ -8,8 +8,11 @@ const hasPermission = async (accountId: number, permissionName: string) => {
        ON rp.role_id = ar.role_id
      JOIN permissions p
        ON p.permission_id = rp.permission_id
+     JOIN accounts a
+       ON a.account_id = ar.account_id
      WHERE ar.account_id = $1
-       AND p.name = $2;`,
+       AND p.name = $2
+       AND a.status = 'active';`,
     [accountId, permissionName],
   );
 

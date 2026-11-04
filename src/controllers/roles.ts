@@ -2,11 +2,41 @@ import test from "../services/try-catch.js";
 import pg from "../config/db.js";
 import checkRow from "../services/rows-check.js";
 
-const OWNER_ROLE_ID = Number(process.env.OWNER_ID);
+const getOwnerRoleId = async (): Promise<number> => {
+  const envId = Number(process.env.OWNER_ID);
+  if (Number.isInteger(envId) && envId > 0) {
+    return envId;
+  }
+  try {
+    const res = await pg.query(
+      `SELECT role_id FROM roles WHERE LOWER(name) = 'owner' LIMIT 1`,
+    );
+    if (res.rows.length > 0 && res.rows[0].role_id) {
+      return Number(res.rows[0].role_id);
+    }
+  } catch {
+    // fallback
+  }
+  return 1;
+};
 
-if (!Number.isInteger(OWNER_ROLE_ID) || OWNER_ROLE_ID <= 0) {
-  throw new Error("OWNER_ID must be a valid positive integer");
-}
+const isOwnerRoleId = async (roleId: number): Promise<boolean> => {
+  const envId = Number(process.env.OWNER_ID);
+  if (Number.isInteger(envId) && envId > 0) {
+    return roleId === envId;
+  }
+  try {
+    const res = await pg.query(
+      `SELECT role_id FROM roles WHERE LOWER(name) = 'owner' LIMIT 1`,
+    );
+    if (res.rows.length > 0) {
+      return Number(res.rows[0].role_id) === roleId;
+    }
+  } catch {
+    // fallback
+  }
+  return roleId === 1;
+};
 
 const readRoles = test(async (req, res) => {
   const result = await pg.query(`
@@ -40,35 +70,45 @@ const readRole = test(async (req, res) => {
 const createRole = test(async (req, res) => {
   const { name } = req.body;
 
-  const existing = await pg.query(
-    `
-    SELECT 1
-    FROM roles
-    WHERE name = $1
-    `,
-    [name.trim()],
-  );
+  try {
+    const existing = await pg.query(
+      `
+      SELECT 1
+      FROM roles
+      WHERE name = $1
+      `,
+      [name.trim()],
+    );
 
-  if (checkRow(existing)) {
-    return res.status(409).json({
-      message: "Role already exists",
-    });
+    if (checkRow(existing)) {
+      return res.status(409).json({
+        message: "Role already exists",
+      });
+    }
+
+    const result = await pg.query(
+      `
+      INSERT INTO roles(name)
+      VALUES ($1)
+      RETURNING *
+      `,
+      [name.trim()],
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err: any) {
+    if (err?.code === "23505") {
+      return res.status(409).json({
+        message: "Role already exists",
+      });
+    }
+    throw err;
   }
-
-  const result = await pg.query(
-    `
-    INSERT INTO roles(name)
-    VALUES ($1)
-    RETURNING *
-    `,
-    [name.trim()],
-  );
-
-  res.status(201).json(result.rows[0]);
 });
 
 const removeRole = test(async (req, res) => {
-  if (Number(req.params.id) === OWNER_ROLE_ID) {
+  const isOwner = await isOwnerRoleId(Number(req.params.id));
+  if (isOwner) {
     return res.status(403).json({
       message: "The owner role cannot be deleted",
     });
@@ -165,35 +205,51 @@ const grantPermission = test(async (req, res) => {
     });
   }
 
-  const existing = await pg.query(
-    `
-    SELECT 1
-    FROM role_permissions
-    WHERE role_id = $1
-      AND permission_id = $2
-    `,
-    [req.params.id, permissionId],
-  );
+  try {
+    const existing = await pg.query(
+      `
+      SELECT 1
+      FROM role_permissions
+      WHERE role_id = $1
+        AND permission_id = $2
+      `,
+      [req.params.id, permissionId],
+    );
 
-  if (checkRow(existing)) {
-    return res.status(409).json({
-      message: "Permission already granted to this role",
-    });
+    if (checkRow(existing)) {
+      return res.status(409).json({
+        message: "Permission already granted to this role",
+      });
+    }
+
+    const result = await pg.query(
+      `
+      INSERT INTO role_permissions(role_id, permission_id)
+      VALUES ($1, $2)
+      RETURNING *
+      `,
+      [req.params.id, permissionId],
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err: any) {
+    if (err?.code === "23505") {
+      return res.status(409).json({
+        message: "Permission already granted to this role",
+      });
+    }
+    throw err;
   }
-
-  const result = await pg.query(
-    `
-    INSERT INTO role_permissions(role_id, permission_id)
-    VALUES ($1, $2)
-    RETURNING *
-    `,
-    [req.params.id, permissionId],
-  );
-
-  res.status(201).json(result.rows[0]);
 });
 
 const revokePermission = test(async (req, res) => {
+  const isOwner = await isOwnerRoleId(Number(req.params.id));
+  if (isOwner) {
+    return res.status(403).json({
+      message: "Permissions cannot be revoked from the owner role",
+    });
+  }
+
   const result = await pg.query(
     `
     DELETE FROM role_permissions
@@ -277,43 +333,55 @@ const grantRole = test(async (req, res) => {
     });
   }
 
-  const existing = await pg.query(
-    `
-    SELECT 1
-    FROM account_roles
-    WHERE account_id = $1
-      AND role_id = $2
-    `,
-    [req.params.accountId, roleId],
-  );
+  try {
+    const existing = await pg.query(
+      `
+      SELECT 1
+      FROM account_roles
+      WHERE account_id = $1
+        AND role_id = $2
+      `,
+      [req.params.accountId, roleId],
+    );
 
-  if (checkRow(existing)) {
-    return res.status(409).json({
-      message: "Role already assigned to this account",
-    });
+    if (checkRow(existing)) {
+      return res.status(409).json({
+        message: "Role already assigned to this account",
+      });
+    }
+
+    const result = await pg.query(
+      `
+      INSERT INTO account_roles(account_id, role_id)
+      VALUES ($1, $2)
+      RETURNING *
+      `,
+      [req.params.accountId, roleId],
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err: any) {
+    if (err?.code === "23505") {
+      return res.status(409).json({
+        message: "Role already assigned to this account",
+      });
+    }
+    throw err;
   }
-
-  const result = await pg.query(
-    `
-    INSERT INTO account_roles(account_id, role_id)
-    VALUES ($1, $2)
-    RETURNING *
-    `,
-    [req.params.accountId, roleId],
-  );
-
-  res.status(201).json(result.rows[0]);
 });
 
 const revokeRole = test(async (req, res) => {
-  if (Number(req.params.roleId) === OWNER_ROLE_ID) {
+  const isOwner = await isOwnerRoleId(Number(req.params.roleId));
+  const ownerRoleId = await getOwnerRoleId();
+
+  if (isOwner) {
     const ownerCount = await pg.query(
       `
       SELECT COUNT(*)::int AS count
       FROM account_roles
       WHERE role_id = $1
       `,
-      [OWNER_ROLE_ID],
+      [ownerRoleId],
     );
 
     if (ownerCount.rows[0].count <= 1) {
@@ -328,9 +396,13 @@ const revokeRole = test(async (req, res) => {
     DELETE FROM account_roles
     WHERE account_id = $1
       AND role_id = $2
+      AND (
+        $2 != $3
+        OR (SELECT COUNT(*) FROM account_roles WHERE role_id = $3) > 1
+      )
     RETURNING *
     `,
-    [req.params.accountId, req.params.roleId],
+    [req.params.accountId, req.params.roleId, ownerRoleId],
   );
 
   if (!checkRow(result)) {

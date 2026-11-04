@@ -3,11 +3,11 @@ import { positiveInteger, requiredString } from "./common.js";
 const create = {
   body: {
     name: {
-      ...requiredString(2),
+      ...requiredString(2, 255),
     },
 
     location: {
-      ...requiredString(2),
+      ...requiredString(2, 255),
     },
   },
 };
@@ -19,11 +19,11 @@ const update = {
 
   body: {
     name: {
-      ...requiredString(2),
+      ...requiredString(2, 255),
     },
 
     location: {
-      ...requiredString(2),
+      ...requiredString(2, 255),
     },
   },
 };

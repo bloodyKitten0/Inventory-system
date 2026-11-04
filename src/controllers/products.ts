@@ -31,14 +31,20 @@ const update = test(async (req, res) => {
     `
     UPDATE products
     SET
-      name = $2,
-      category_id = $3,
-      description = $4,
-      price = $5
+      name = COALESCE($2, name),
+      category_id = COALESCE($3, category_id),
+      description = COALESCE($4, description),
+      price = COALESCE($5, price)
     WHERE id = $1
     RETURNING *
     `,
-    [req.params.id, name.trim(), category_id, description?.trim(), price],
+    [
+      req.params.id,
+      name !== undefined ? name.trim() : null,
+      category_id,
+      description !== undefined ? description?.trim() : null,
+      price,
+    ],
   );
 
   if (!checkRow(result)) {

@@ -160,6 +160,8 @@ const createEnvironment = () => {
   };
 
   const sessions = {
+    SESSION_TTL: 86400,
+
     async createSession(accountId: number) {
       state.createSessionCalls.push(accountId);
       return state.sessionId;
@@ -871,7 +873,7 @@ test("register passes verification email errors to next", async () => {
 
     assert.equal(
       environment.state.transactionQueries.some(
-        (query: any) => query.sql === "COMMIT",
+        (query: any) => query.sql === "ROLLBACK",
       ),
       true,
     );
@@ -1678,5 +1680,183 @@ test("logout uses secure cookie clearing when COOKIE_SECURE is true", async () =
     await asMockHandler(logout)(req, res, next);
 
     assert.equal((res.clearCookieCalls[0]!.options as { secure: boolean }).secure, true);
+  });
+});
+
+test("bootstrap creates an active administrator account with owner role when no owner exists", async () => {
+  await withEnvironment(async () => {
+    const environment = createEnvironment();
+
+    environment.state.pgQueryHandler = async (sql: string) => {
+      if (sql.includes("account_roles ar")) {
+        return { rows: [] };
+      }
+      if (sql.includes("WHERE username = $1 OR email = $2")) {
+        return { rows: [] };
+      }
+      if (sql.includes("WHERE LOWER(name) = 'owner'")) {
+        return { rows: [{ role_id: 1 }] };
+      }
+      return { rows: [] };
+    };
+
+    environment.state.transactionQueryHandler = async (sql: string) => {
+      if (sql.includes("INSERT INTO accounts")) {
+        return {
+          rows: [
+            {
+              account_id: 1,
+              username: "admin",
+              email: "admin@example.com",
+              status: "active",
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    };
+
+    const { bootstrap } = await loadAuth(environment);
+
+    const req = {
+      body: {
+        username: "admin",
+        email: "admin@example.com",
+        password: "password123",
+      },
+    };
+
+    const res = makeResponse();
+    const next = makeNext();
+
+    await asMockHandler(bootstrap)(req, res, next);
+
+    assert.equal(res.statusCode, 201);
+    assert.equal(
+      (res.body as { message: string }).message,
+      "Administrator account created successfully",
+    );
+    assert.equal(
+      environment.state.transactionQueries.some((q: any) => q.sql === "COMMIT"),
+      true,
+    );
+  });
+});
+
+test("bootstrap returns 403 when an administrator already exists", async () => {
+  await withEnvironment(async () => {
+    const environment = createEnvironment();
+
+    environment.state.pgQueryHandler = async (sql: string) => {
+      if (sql.includes("account_roles ar")) {
+        return { rows: [{ 1: 1 }] };
+      }
+      return { rows: [] };
+    };
+
+    const { bootstrap } = await loadAuth(environment);
+
+    const req = {
+      body: {
+        username: "admin2",
+        email: "admin2@example.com",
+        password: "password123",
+      },
+    };
+
+    const res = makeResponse();
+    const next = makeNext();
+
+    await asMockHandler(bootstrap)(req, res, next);
+
+    assert.equal(res.statusCode, 403);
+    assert.deepEqual(res.body, {
+      message: "Administrator already exists",
+    });
+  });
+});
+
+test("bootstrap returns 409 when username or email already exists", async () => {
+  await withEnvironment(async () => {
+    const environment = createEnvironment();
+
+    environment.state.pgQueryHandler = async (sql: string) => {
+      if (sql.includes("account_roles ar")) {
+        return { rows: [] };
+      }
+      if (sql.includes("WHERE username = $1 OR email = $2")) {
+        return { rows: [{ account_id: 5 }] };
+      }
+      return { rows: [] };
+    };
+
+    const { bootstrap } = await loadAuth(environment);
+
+    const req = {
+      body: {
+        username: "existing",
+        email: "existing@example.com",
+        password: "password123",
+      },
+    };
+
+    const res = makeResponse();
+    const next = makeNext();
+
+    await asMockHandler(bootstrap)(req, res, next);
+
+    assert.equal(res.statusCode, 409);
+    assert.deepEqual(res.body, {
+      message: "Username or email already exists",
+    });
+  });
+});
+
+test("bootstrap rolls back transaction on error", async () => {
+  await withEnvironment(async () => {
+    const environment = createEnvironment();
+    const dbError = new Error("Insert failed");
+
+    environment.state.pgQueryHandler = async (sql: string) => {
+      if (sql.includes("account_roles ar")) {
+        return { rows: [] };
+      }
+      if (sql.includes("WHERE username = $1 OR email = $2")) {
+        return { rows: [] };
+      }
+      if (sql.includes("WHERE LOWER(name) = 'owner'")) {
+        return { rows: [{ role_id: 1 }] };
+      }
+      return { rows: [] };
+    };
+
+    environment.state.transactionQueryHandler = async (sql: string) => {
+      if (sql.includes("INSERT INTO accounts")) {
+        throw dbError;
+      }
+      return { rows: [] };
+    };
+
+    const { bootstrap } = await loadAuth(environment);
+
+    const req = {
+      body: {
+        username: "admin",
+        email: "admin@example.com",
+        password: "password123",
+      },
+    };
+
+    const res = makeResponse();
+    const next = makeNext();
+
+    await asMockHandler(bootstrap)(req, res, next);
+
+    assert.equal(next.called, true);
+    assert.equal(next.args[0], dbError);
+    assert.equal(
+      environment.state.transactionQueries.some((q: any) => q.sql === "ROLLBACK"),
+      true,
+    );
   });
 });

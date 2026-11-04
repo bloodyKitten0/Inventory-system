@@ -32,7 +32,10 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: "http://localhost:3000",
+        url: process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`,
+      },
+      {
+        url: "/",
       },
     ],
   },
@@ -50,20 +53,55 @@ app.use("/warehouses", warehousesRouter);
 app.use("/products-suppliers", productsSuppliersRouter);
 app.use("/auth", authRouter);
 app.use("/roles", rolesRouter);
-app.use("/", inventoryRouter);
-app.use("/", ordersItemsRouter);
-app.use("/", ordersRouter);
-app.use("/", stockMovementsRouter);
+app.use("/inventory", inventoryRouter);
+app.use("/orders-items", ordersItemsRouter);
+app.use("/orders", ordersRouter);
+app.use("/stock-movements", stockMovementsRouter);
 
 app.use((req: Request, res: Response) => {
   res.status(404).json({
     message: "Route not found",
   });
 });
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error(err);
-  res.status(500).json({
-    message: "Internal server error",
+
+  if (err?.code === "23503") {
+    res.status(400).json({
+      message: "Foreign key violation: referenced record does not exist",
+      detail: err.detail,
+    });
+    return;
+  }
+
+  if (err?.code === "23505") {
+    res.status(409).json({
+      message: "Resource already exists",
+      detail: err.detail,
+    });
+    return;
+  }
+
+  if (err?.code === "23514") {
+    res.status(400).json({
+      message: "Check constraint violation",
+      detail: err.detail,
+    });
+    return;
+  }
+
+  if (err?.code === "22P02") {
+    res.status(400).json({
+      message: "Invalid input syntax for type",
+    });
+    return;
+  }
+
+  const status = typeof err?.statusCode === "number" ? err.statusCode : typeof err?.status === "number" ? err.status : 500;
+  const message = status === 500 ? "Internal server error" : (err?.message || "An error occurred");
+
+  res.status(status).json({
+    message,
   });
 });
 

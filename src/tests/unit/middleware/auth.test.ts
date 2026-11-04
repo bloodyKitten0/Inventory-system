@@ -197,7 +197,6 @@ test("passes the sessionId from the cookie to getSession", async () => {
 
     assert.equal(receivedSessionId, "abc123");
   } finally {
-    // nothing to restore: test.afterEach resets getSession
   }
 });
 test("stores the exact session returned by getSession in req.user", async () => {

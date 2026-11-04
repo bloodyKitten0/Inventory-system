@@ -152,3 +152,66 @@ test("update returns 404 when supplier does not exist", async () => {
     db.query = originalQuery;
   }
 });
+
+test("create normalizes email to lowercase and trims name", async () => {
+  const originalQuery = db.query;
+  let receivedParams: unknown[] = [];
+
+  db.query = async (query: string, values: unknown[]) => {
+    receivedParams = values;
+    return { rows: [{ id: 1, supplier_name: "Acme", supplier_email: "acme@example.com" }] };
+  };
+
+  const result = response();
+
+  try {
+    await controller.create(
+      {
+        body: {
+          supplier_name: "  Acme Corp  ",
+          supplier_email: "  ACME@EXAMPLE.COM  ",
+          supplier_phone: "  555-1234  ",
+        },
+      },
+      result.res,
+      () => {},
+    );
+
+    assert.equal(result.statusCode, 201);
+    assert.deepEqual(receivedParams, ["Acme Corp", "acme@example.com", "555-1234"]);
+  } finally {
+    db.query = originalQuery;
+  }
+});
+
+test("create returns 409 when supplier email already exists", async () => {
+  const originalQuery = db.query;
+  const conflictError = Object.assign(new Error("duplicate key"), { code: "23505" });
+
+  db.query = async () => {
+    throw conflictError;
+  };
+
+  const result = response();
+
+  try {
+    await controller.create(
+      {
+        body: {
+          supplier_name: "Acme",
+          supplier_email: "duplicate@example.com",
+          supplier_phone: "555",
+        },
+      },
+      result.res,
+      () => {},
+    );
+
+    assert.equal(result.statusCode, 409);
+    assert.deepEqual(result.body, {
+      message: "Supplier with this email already exists",
+    });
+  } finally {
+    db.query = originalQuery;
+  }
+});

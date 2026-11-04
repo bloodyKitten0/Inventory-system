@@ -30,8 +30,6 @@ interface ValidationError {
 
 const NUMERIC_STRING = /^-?\d+(\.\d+)?$/;
 
-// Route params and query values always arrive as strings. When a rule
-// expects a number, a numeric string is converted before it is checked.
 const coerce = (source: string, value: unknown, rules: FieldRules) => {
   if (
     (source === "params" || source === "query") &&

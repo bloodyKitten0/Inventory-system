@@ -282,7 +282,7 @@ The exact middleware sequence varies by route, but protected application resourc
 
 Authentication is session-based rather than JWT-based.
 
-The registration flow is:
+### Registration Flow
 
 ```text
 Client Registration
@@ -304,14 +304,28 @@ Hash Verification Token
 Store Token Hash + Expiration
       ↓
 Send Verification Email
+      ↓
+Commit Transaction (Atomic Rollback on Email Failure)
 ```
 
 After verification, the account can log in.
 
-The login flow is:
+### Administrator Bootstrap
+
+When setting up a new deployment with no existing accounts, the initial Administrator account with the Owner role can be created via:
+
+```text
+POST /auth/bootstrap
+```
+
+This endpoint creates an active administrator account with the Owner role directly, guarded by a database check that rejects requests if an Owner account already exists (`403 Forbidden`).
+
+### Login Flow
 
 ```text
 Email + Password
+      ↓
+Normalize Email to Lowercase
       ↓
 Find Account
       ↓
@@ -321,12 +335,12 @@ Confirm Active Account
       ↓
 Generate Session ID
       ↓
-Store Session in Redis
+Store Session in Redis (with Validated SESSION_TTL)
       ↓
-Set HTTP-only Cookie
+Set HTTP-only Cookie (Cookie maxAge matches SESSION_TTL)
 ```
 
-The server therefore identifies the authenticated account from the server-side session rather than trusting an account ID supplied by the client.
+The server therefore identifies the authenticated account from the server-side session rather than trusting an account ID supplied by the client. Session cookies and Redis TTL are kept synchronized, and disabled accounts immediately lose access through active-status checks during authorization.
 
 ---
 
@@ -415,27 +429,22 @@ order.cancel
 order.update_status
 ```
 
-The current system therefore provides operation-level authorization.
+The current system provides operation-level authorization across all domain resources.
 
 ### Resource-level authorization
 
-Resource-level authorization is not yet complete.
+Resource-level authorization protects customer-owned resources from unauthorized access:
 
-For example, a permission such as:
-
-```text
-order.read
-```
-
-establishes that the account may read orders in general. It does not currently prove that the account is entitled to read **this specific order**.
-
-This is a planned security layer for customer-owned resources and other object-specific access decisions.
+- Customer accounts have their associated `customerId` bound to their server-side session.
+- When an authenticated customer accesses `/orders`, `/orders/:id`, `/orders/:id/details`, `/orders/:id/total`, `/orders/:id/cancel`, `/orders/customer/:id`, or creates order items, the system verifies that the order's `customer_id` matches the authenticated customer's ID (`req.user.customerId`).
+- Cross-tenant customer access attempts return `403 Forbidden`.
+- Customer role users are granted self-service order workflow permissions (`order.read`, `order.create`, `order.cancel`, `order.details`, `order.total`, `order_item.create`, `order_item.read`, `product.read`, `category.read`).
 
 ---
 
 # Roles
 
-The database currently seeds the following roles:
+The database seeds the following roles:
 
 - Owner
 - Product Manager
@@ -447,9 +456,10 @@ The database currently seeds the following roles:
 - Ordering Manager
 - Customer
 
-The Owner role is used for role and authorization administration.
-
-The registration path does not permit clients to select an arbitrary privileged role. New accounts receive the configured Customer role server-side.
+The Owner role is protected by strict invariants:
+- Permissions cannot be revoked from the Owner role (`403 Forbidden`).
+- The last account holding the Owner role cannot be revoked, guarded against race conditions with atomic conditional checks.
+- When `OWNER_ID` is not explicitly set in the environment, the system dynamically discovers the Owner role ID from the database.
 
 ---
 
@@ -581,76 +591,90 @@ The purpose is to prevent race conditions in which concurrent requests independe
 
 # Inventory
 
-The inventory subsystem supports:
+The inventory subsystem is mounted under the `/inventory` router prefix. It supports:
 
 - Inventory records
 - Product-level inventory queries
 - Warehouse-level inventory queries
-- Total inventory summaries
+- Total inventory summaries (returns `[]` on empty collection)
 - Single-product summaries
-- Low-stock queries
-- Availability checks
+- Low-stock queries (returns `[]` on empty collection)
+- Availability checks (requires positive quantity)
 - Stock adjustments
 
-Positive adjustments create `RECEIPT` stock movements.
+All stock mutations record accurate stock ledger movements:
+- Initial stock creation records a `RECEIPT` movement with reason `'Initial stock'`.
+- Stock adjustments record `ADJUSTMENT` movements with reason `'Stock adjustment increase'` or `'Stock adjustment decrease'`.
+- Manual inventory updates record `RECEIPT` (increase) or `SALE` (decrease) movements reflecting the delta.
+- Deleting inventory with positive stock writes off remaining stock recording an `ADJUSTMENT` movement before row removal.
 
-Negative adjustments create `SALE` stock movements.
-
-Inventory amounts are constrained at the database level to remain non-negative.
+Inventory quantities must be non-negative integers and amounts are constrained at the database level (`CHECK (amount >= 0)`).
 
 ---
 
 # Orders
 
-Orders can be:
+The orders subsystem is mounted under the `/orders` router prefix.
+
+Orders follow a strict lifecycle:
 
 ```text
-pending
-processing
-completed
-cancelled
+pending ──(process)──► processing ──► completed
+   │                       │
+   └──(cancel)─────────────┴───────► cancelled
 ```
 
-The system supports:
+### Available Endpoints
 
-- Creating orders
-- Reading orders
-- Updating orders
-- Deleting orders
-- Reading customer orders
-- Reading warehouse orders
-- Reading order details
-- Calculating order totals
-- Processing orders
-- Updating order status
-- Cancelling pending orders
+- `GET /orders` - Read orders (scoped to customer if authenticated as a customer)
+- `POST /orders` - Create a pending order
+- `GET /orders/:id` - Read order by ID
+- `PUT /orders/:id` - Update order
+- `DELETE /orders/:id` - Delete order (reverses stock if processing)
+- `GET /orders/customer/:id` - Read orders for a customer
+- `GET /orders/warehouse/:id` - Read orders for a warehouse
+- `GET /orders/:id/details` - Read order items with product details (returns `[]` if order has no items)
+- `GET /orders/:id/total` - Calculate order total price (returns `{ order_id, total: "0" }` if empty)
+- `POST /orders/:id/process` - Atomically process an order and deduct inventory
+- `PATCH /orders/:id/status` - Update order status
+- `PATCH /orders/:id/cancel` - Cancel an order (restores stock if processing)
 
-Order processing is transactional and deducts inventory from the order's warehouse.
+### Order Lifecycle Invariants
 
-The project is still refining its order lifecycle invariants. In particular, arbitrary status transitions and post-processing order-item mutations require further restriction before the system should be considered production-safe.
+- **Processing Requirements**: Orders can only transition to `processing` via `POST /orders/:id/process`. Direct status changes to `processing` via `PUT` or `PATCH` are rejected (`400 Bad Request`).
+- **Pending Reversion**: Once processed, orders cannot be reset to `pending` (`400 Bad Request`).
+- **Identity Immutability**: Customer ID and Warehouse ID cannot be reassigned once an order has been processed.
+- **Stock Restoration**: Cancelling or deleting an order in `processing` status restores deducted inventory to the warehouse and logs `RECEIPT` movements in the stock ledger.
+- **Order Items Protection**: Order items cannot be added, updated, or deleted on orders that are in `processing`, `completed`, or `cancelled` state.
+- **Canonical Pricing**: When adding items to orders, prices are looked up from the `products` table rather than trusting client-provided prices.
+- **Deadlock Avoidance**: Order processing locks inventory rows in deterministic ascending order (`ORDER BY product_id ASC`) to eliminate concurrency deadlocks under high load.
 
 ---
 
 # Stock Movements
 
-Stock movements provide historical records of inventory changes.
+The stock movements subsystem is mounted under the `/stock-movements` router prefix. Stock movements provide historical audit records of all inventory changes.
 
-Current movement types are:
+Movement types are:
 
 ```text
 RECEIPT
 SALE
+ADJUSTMENT
 ```
 
 Movement records include:
 
-- Product
-- Warehouse
-- Movement type
-- Quantity
-- Creation timestamp
+- `id`: Unique movement identifier
+- `product_id`: Product reference
+- `warehouse_id`: Warehouse reference
+- `movement_type`: `RECEIPT`, `SALE`, or `ADJUSTMENT`
+- `quantity`: Positive integer quantity moved
+- `reference_id`: Associated business reference ID (e.g. order ID, inventory ID)
+- `reason`: Human-readable audit description (e.g. "Order fulfillment", "Stock adjustment increase", "Inventory deletion write-off")
+- `created_at`: Timestamp of movement
 
-The movement table is intentionally not exposed as a normal delete API.
+The movement table is an append-only ledger and is not exposed to deletion.
 
 ---
 
@@ -662,11 +686,10 @@ Swagger/OpenAPI documentation is served at:
 /api-docs
 ```
 
-After the application is running:
+The documentation server dynamically adapts using the environment:
 
-```text
-http://localhost:3000/api-docs
-```
+- Respects `process.env.BASE_URL` or defaults to `http://localhost:${PORT || 3000}`
+- Supports relative path routing (`/`) for reverse proxy compatibility
 
 The documentation is generated from route-level OpenAPI annotations in the TypeScript router files.
 
@@ -859,13 +882,7 @@ Current security controls include:
 
 # Current Limitations
 
-The following items remain incomplete or require hardening:
-
-### Authorization
-
-- Resource-level authorization
-- Customer ownership checks
-- Object-level access policies
+The following items remain areas for future enhancement:
 
 ### Testing
 
@@ -885,17 +902,8 @@ The following items remain incomplete or require hardening:
 - Broader security review
 - Production secret-management strategy
 
-### Business Integrity
-
-- Strict order state-transition rules
-- Protection against re-processing an already-consumed order
-- Restriction of order-item changes after processing
-- Consistent stock-movement accounting for all inventory mutations
-- Deterministic inventory-lock ordering for high-contention order processing
-
 ### Operations
 
-- Configurable server port
 - Startup environment validation
 - Health/readiness endpoints
 - Graceful shutdown
@@ -995,4 +1003,4 @@ The emphasis is on understanding the mechanisms behind the system:
 
 # License
 
-No explicit project license has currently been declared.
+This project is licensed under the [ISC License](LICENSE).

@@ -1,10 +1,13 @@
 import app from "./app.js";
 import { connect } from "./config/redis.js";
+
+const PORT = process.env.PORT || 3000;
+
 const startServer = async () => {
   try {
     await connect();
-    app.listen(3000, () => {
-      console.log("Server is running");
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
     });
   } catch (error) {
     console.error("Failed to start server:", error);

@@ -7,7 +7,7 @@ import {
 const create = {
   body: {
     name: {
-      ...requiredString(1),
+      ...requiredString(1, 255),
     },
     category_id: positiveInteger,
     description: {
@@ -23,7 +23,7 @@ const update = {
   },
   body: {
     name: {
-      ...requiredString(1),
+      ...requiredString(1, 255),
     },
     category_id: positiveInteger,
     description: {

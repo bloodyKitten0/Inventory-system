@@ -20,25 +20,31 @@ const create = test(async (req, res) => {
       ($1, $2, $3, now())
     RETURNING *
     `,
-    [customer_name.trim(), customer_email.trim(), shipping_address.trim()],
+    [customer_name.trim(), customer_email.trim().toLowerCase(), shipping_address.trim()],
   );
 
   res.status(201).json(result.rows[0]);
 });
 
 const update = test(async (req, res) => {
-  const { customer_email, shipping_address } = req.body;
+  const { customer_name, customer_email, shipping_address } = req.body;
 
   const result = await pg.query(
     `
     UPDATE customers
     SET
-      customer_email = $2,
-      shipping_address = $3
+      customer_name = COALESCE($2, customer_name),
+      customer_email = COALESCE($3, customer_email),
+      shipping_address = COALESCE($4, shipping_address)
     WHERE id = $1
     RETURNING *
     `,
-    [req.params.id, customer_email.trim(), shipping_address.trim()],
+    [
+      req.params.id,
+      customer_name !== undefined ? customer_name.trim() : null,
+      customer_email !== undefined ? customer_email.trim().toLowerCase() : null,
+      shipping_address !== undefined ? shipping_address.trim() : null,
+    ],
   );
 
   if (!checkRow(result)) {

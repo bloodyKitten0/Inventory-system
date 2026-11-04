@@ -8,10 +8,31 @@ import { one } from "../services/read-relation.js";
 
 const read = readAll("orders");
 
-const readOne = readId("orders", "order");
+const readOne = test(async (req, res) => {
+  const result = await pg.query(
+    `SELECT * FROM orders WHERE id = $1`,
+    [req.params.id],
+  );
+
+  if (!checkRow(result)) {
+    return res.status(404).json("order not found");
+  }
+
+  const order = result.rows[0];
+
+  if (req.user?.customerId && order.customer_id !== req.user.customerId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  res.status(200).json(order);
+});
 
 const create = test(async (req, res) => {
   const { customer_id, warehouse_id } = req.body;
+
+  if (req.user?.customerId && customer_id !== req.user.customerId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
 
   const result = await pg.query(
     `
@@ -30,35 +51,126 @@ const create = test(async (req, res) => {
 const update = test(async (req, res) => {
   const { customer_id, warehouse_id, status } = req.body;
 
+  const existingOrder = await pg.query(
+    `SELECT * FROM orders WHERE id = $1`,
+    [req.params.id],
+  );
+
+  if (!checkRow(existingOrder)) {
+    return res.status(404).json("order not found");
+  }
+
+  const current = existingOrder.rows[0];
+
+  if (req.user?.customerId && current.customer_id !== req.user.customerId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  if (
+    current.status &&
+    current.status.toLowerCase() !== "pending" &&
+    status &&
+    status.toLowerCase() === "pending"
+  ) {
+    return res.status(400).json({ message: "Processed orders cannot be reset to pending" });
+  }
+
+  if (
+    current.status &&
+    current.status.toLowerCase() === "pending" &&
+    status &&
+    status.toLowerCase() === "processing"
+  ) {
+    return res.status(400).json({
+      message: "Orders cannot change status to processing without processing inventory",
+    });
+  }
+
+  if (current.status && current.status.toLowerCase() !== "pending") {
+    if (customer_id !== undefined && customer_id !== current.customer_id) {
+      return res.status(400).json({
+        message: "Order customer cannot be reassigned after processing",
+      });
+    }
+    if (warehouse_id !== undefined && warehouse_id !== current.warehouse_id) {
+      return res.status(400).json({
+        message: "Order warehouse cannot be reassigned after processing",
+      });
+    }
+  }
+
   const result = await pg.query(
     `
     UPDATE orders
     SET
-      customer_id = $2,
-      warehouse_id = $3,
-      status = $4
+      customer_id = COALESCE($2, customer_id),
+      warehouse_id = COALESCE($3, warehouse_id),
+      status = COALESCE($4, status)
     WHERE id = $1
     RETURNING *
     `,
     [req.params.id, customer_id, warehouse_id, status],
   );
 
-  if (!checkRow(result)) {
+  res.status(200).json(result.rows[0]);
+});
+
+const remove = test(async (req, res) => {
+  const existingOrder = await pg.query(
+    `SELECT * FROM orders WHERE id = $1`,
+    [req.params.id],
+  );
+
+  if (!checkRow(existingOrder)) {
     return res.status(404).json("order not found");
   }
+
+  const order = existingOrder.rows[0];
+
+  if (order.status && order.status.toLowerCase() === "processing") {
+    const items = await pg.query(
+      `SELECT * FROM orders_items WHERE order_id = $1`,
+      [req.params.id],
+    );
+    for (const item of items.rows) {
+      await pg.query(
+        `UPDATE inventory SET amount = amount + $1 WHERE product_id = $2 AND warehouse_id = $3`,
+        [item.quantity, item.product_id, order.warehouse_id],
+      );
+      await pg.query(
+        `INSERT INTO stock_movements (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
+         VALUES ($1, $2, 'RECEIPT', $3, now(), $4, 'Order deletion reverse')`,
+        [item.product_id, order.warehouse_id, item.quantity, req.params.id],
+      );
+    }
+  }
+
+  await pg.query(`DELETE FROM orders_items WHERE order_id = $1`, [req.params.id]);
+  const result = await pg.query(
+    `DELETE FROM orders WHERE id = $1 RETURNING *`,
+    [req.params.id],
+  );
 
   res.status(200).json(result.rows[0]);
 });
 
-const remove = deleteId("orders", "order");
+const customerOrders = test(async (req, res) => {
+  if (req.user?.customerId && Number(req.params.id) !== req.user.customerId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
 
-const customerOrders = one(
-  "orders",
-  "customers",
-  "id",
-  "customer_id",
-  "customer_id",
-);
+  const result = await pg.query(
+    `
+    SELECT * FROM orders s
+    JOIN customers j
+    ON j.id = s.customer_id
+    WHERE s.customer_id = $1 
+    `,
+    [req.params.id],
+  );
+  if (!checkRow(result)) return res.status(404).json("relation not found");
+  res.status(200).json(result.rows);
+});
 
 const warehouseOrders = one(
   "orders",
@@ -71,6 +183,64 @@ const warehouseOrders = one(
 const updateStatus = test(async (req, res) => {
   const { status } = req.body;
 
+  const existingOrder = await pg.query(
+    `SELECT * FROM orders WHERE id = $1`,
+    [req.params.id],
+  );
+
+  if (!checkRow(existingOrder)) {
+    return res.status(404).json("order not found");
+  }
+
+  const current = existingOrder.rows[0];
+
+  if (req.user?.customerId && current.customer_id !== req.user.customerId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  if (
+    current.status &&
+    current.status.toLowerCase() !== "pending" &&
+    status &&
+    status.toLowerCase() === "pending"
+  ) {
+    return res.status(400).json({ message: "Processed orders cannot be reset to pending" });
+  }
+
+  if (
+    current.status &&
+    current.status.toLowerCase() === "pending" &&
+    status &&
+    status.toLowerCase() === "processing"
+  ) {
+    return res.status(400).json({
+      message: "Orders cannot change status to processing without processing inventory",
+    });
+  }
+
+  if (
+    current.status &&
+    current.status.toLowerCase() === "processing" &&
+    status &&
+    status.toLowerCase() === "cancelled"
+  ) {
+    const items = await pg.query(
+      `SELECT * FROM orders_items WHERE order_id = $1`,
+      [req.params.id],
+    );
+    for (const item of items.rows) {
+      await pg.query(
+        `UPDATE inventory SET amount = amount + $1 WHERE product_id = $2 AND warehouse_id = $3`,
+        [item.quantity, item.product_id, current.warehouse_id],
+      );
+      await pg.query(
+        `INSERT INTO stock_movements (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
+         VALUES ($1, $2, 'RECEIPT', $3, now(), $4, 'Order cancellation restore')`,
+        [item.product_id, current.warehouse_id, item.quantity, req.params.id],
+      );
+    }
+  }
+
   const result = await pg.query(
     `
     UPDATE orders
@@ -81,55 +251,117 @@ const updateStatus = test(async (req, res) => {
     [status, req.params.id],
   );
 
-  if (!checkRow(result)) {
-    return res.status(404).json("order not found");
-  }
-
   res.status(200).json(result.rows[0]);
 });
 
 const cancelOrder = test(async (req, res) => {
+  const existingOrder = await pg.query(
+    `SELECT * FROM orders WHERE id = $1`,
+    [req.params.id],
+  );
+
+  if (!checkRow(existingOrder)) {
+    return res.status(404).json("order not found or can't be canceled");
+  }
+
+  const order = existingOrder.rows[0];
+
+  if (req.user?.customerId && order.customer_id !== req.user.customerId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  if (
+    order.status &&
+    (order.status.toLowerCase() === "delivered" ||
+      order.status.toLowerCase() === "shipped")
+  ) {
+    return res.status(400).json({ message: "Order cannot be cancelled in its current state" });
+  }
+
+  if (order.status && order.status.toLowerCase() === "processing") {
+    const items = await pg.query(
+      `SELECT * FROM orders_items WHERE order_id = $1`,
+      [req.params.id],
+    );
+    for (const item of items.rows) {
+      await pg.query(
+        `UPDATE inventory SET amount = amount + $1 WHERE product_id = $2 AND warehouse_id = $3`,
+        [item.quantity, item.product_id, order.warehouse_id],
+      );
+      await pg.query(
+        `INSERT INTO stock_movements (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
+         VALUES ($1, $2, 'RECEIPT', $3, now(), $4, 'Order cancellation restore')`,
+        [item.product_id, order.warehouse_id, item.quantity, req.params.id],
+      );
+    }
+  }
+
   const result = await pg.query(
     `
     UPDATE orders
     SET status = 'cancelled'
-    WHERE
-      id = $1
-      AND status = 'pending'
+    WHERE id = $1
     RETURNING *
     `,
     [req.params.id],
   );
 
-  if (!checkRow(result)) {
-    return res.status(404).json("order not found or can't be canceled");
-  }
-
   res.status(200).json(result.rows[0]);
 });
 
 const orderDetails = test(async (req, res) => {
-  const result = await pg.query(
-    `
-    SELECT *
-    FROM orders o
-    JOIN orders_items oi
-      ON oi.order_id = o.id
-    JOIN products p
-      ON p.id = oi.product_id
-    WHERE o.id = $1
-    `,
+  const orderResult = await pg.query(
+    `SELECT * FROM orders WHERE id = $1`,
     [req.params.id],
   );
 
-  if (!checkRow(result)) {
+  if (!checkRow(orderResult)) {
     return res.status(404).json("order not found");
   }
+
+  const order = orderResult.rows[0];
+
+  if (req.user?.customerId && order.customer_id !== req.user.customerId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  const result = await pg.query(
+    `
+    SELECT
+      oi.id AS order_item_id,
+      oi.order_id,
+      oi.product_id,
+      p.name AS product_name,
+      oi.quantity,
+      oi.price
+    FROM orders_items oi
+    JOIN products p
+      ON p.id = oi.product_id
+    WHERE oi.order_id = $1
+    ORDER BY oi.id ASC
+    `,
+    [req.params.id],
+  );
 
   res.status(200).json(result.rows);
 });
 
 const calculateOrderTotal = test(async (req, res) => {
+  const orderResult = await pg.query(
+    `SELECT * FROM orders WHERE id = $1`,
+    [req.params.id],
+  );
+
+  if (!checkRow(orderResult)) {
+    return res.status(404).json("order not found");
+  }
+
+  const order = orderResult.rows[0];
+
+  if (req.user?.customerId && order.customer_id !== req.user.customerId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
   const result = await pg.query(
     `
     SELECT
@@ -142,8 +374,11 @@ const calculateOrderTotal = test(async (req, res) => {
     [req.params.id],
   );
 
-  if (!checkRow(result)) {
-    return res.status(404).json("order not found");
+  if (result.rows.length === 0) {
+    return res.status(200).json({
+      order_id: Number(req.params.id),
+      total: "0",
+    });
   }
 
   res.status(200).json(result.rows[0]);
@@ -188,6 +423,7 @@ const processOrder = test(async (req, res) => {
       SELECT *
       FROM orders_items
       WHERE order_id = $1
+      ORDER BY product_id ASC
       `,
       [req.params.id],
     );
@@ -243,11 +479,11 @@ const processOrder = test(async (req, res) => {
       await transaction.query(
         `
         INSERT INTO stock_movements
-          (product_id, warehouse_id, movement_type, quantity, created_at)
+          (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
         VALUES
-          ($1, $2, 'SALE', $3, now())
+          ($1, $2, 'SALE', $3, now(), $4, 'Order fulfillment')
         `,
-        [item.product_id, order.warehouse_id, item.quantity],
+        [item.product_id, order.warehouse_id, item.quantity, order.id],
       );
     }
 

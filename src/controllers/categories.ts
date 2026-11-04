@@ -31,13 +31,17 @@ const update = test(async (req, res) => {
     `
     UPDATE categories
     SET
-      name = $2,
+      name = COALESCE($2, name),
       updated_at = now(),
-      description = $3
+      description = COALESCE($3, description)
     WHERE id = $1
     RETURNING *
     `,
-    [req.params.id, name.trim(), description?.trim()],
+    [
+      req.params.id,
+      name !== undefined ? name.trim() : null,
+      description !== undefined ? description?.trim() : null,
+    ],
   );
 
   if (!checkRow(result)) {

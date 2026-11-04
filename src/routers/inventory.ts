@@ -44,7 +44,7 @@ router.use(authenticate);
  *       404:
  *         description: No inventory found
  */
-router.get("/inventory", requirePermission("inventory.read"), read);
+router.get("/", requirePermission("inventory.read"), read);
 
 /**
  * @swagger
@@ -69,7 +69,7 @@ router.get("/inventory", requirePermission("inventory.read"), read);
  *         description: Product inventory not found
  */
 router.get(
-  "/inventory/product/:id",
+  "/product/:id",
   validate(inventoryValidation.id),
   requirePermission("inventory.read"),
   productInventory,
@@ -98,7 +98,7 @@ router.get(
  *         description: Warehouse inventory not found
  */
 router.get(
-  "/inventory/warehouse/:id",
+  "/warehouse/:id",
   validate(inventoryValidation.id),
   requirePermission("inventory.read"),
   warehouseInventory,
@@ -125,7 +125,7 @@ router.get(
  *         description: Invalid stock threshold
  */
 router.get(
-  "/inventory/low-stock/:below",
+  "/low-stock/:below",
   validate(inventoryValidation.lowStock),
   requirePermission("inventory.low_stock"),
   lowStock,
@@ -144,7 +144,7 @@ router.get(
  *         description: Inventory is empty
  */
 router.get(
-  "/inventory/summary",
+  "/summary",
   requirePermission("inventory.summary"),
   inventorySummary,
 );
@@ -172,7 +172,7 @@ router.get(
  *         description: Inventory is empty
  */
 router.get(
-  "/inventory/summary/:id",
+  "/summary/:id",
   validate(inventoryValidation.id),
   requirePermission("inventory.summary"),
   inventorySummaryOne,
@@ -201,7 +201,7 @@ router.get(
  *         description: Inventory not found
  */
 router.get(
-  "/inventory/:id",
+  "/:id",
   validate(inventoryValidation.id),
   requirePermission("inventory.read"),
   readOne,
@@ -237,7 +237,7 @@ router.get(
  *         description: Invalid inventory data
  */
 router.post(
-  "/inventory",
+  "/",
   validate(inventoryValidation.create),
   requirePermission("inventory.create"),
   create,
@@ -282,7 +282,7 @@ router.post(
  *         description: Inventory not found
  */
 router.put(
-  "/inventory/:id",
+  "/:id",
   validate(inventoryValidation.update),
   requirePermission("inventory.update"),
   update,
@@ -310,7 +310,7 @@ router.put(
  *         description: Inventory not found
  */
 router.delete(
-  "/inventory/:id",
+  "/:id",
   validate(inventoryValidation.id),
   requirePermission("inventory.delete"),
   remove,
@@ -351,7 +351,7 @@ router.delete(
  *         description: Inventory not found
  */
 router.patch(
-  "/inventory/:id/adjust",
+  "/:id/adjust",
   validate(inventoryValidation.adjust),
   requirePermission("inventory.adjust"),
   adjustStock,
@@ -389,7 +389,7 @@ router.patch(
  *         description: Inventory not found
  */
 router.post(
-  "/inventory/check-availability",
+  "/check-availability",
   validate(inventoryValidation.checkAvailability),
   requirePermission("inventory.checks"),
   checkAvailability,

@@ -9,7 +9,7 @@ const roleId = {
 const createRole = {
   body: {
     name: {
-      ...requiredString(2),
+      ...requiredString(2, 100),
     },
   },
 };

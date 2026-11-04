@@ -10,7 +10,7 @@ import {
   hashPassword,
   verifyPassword,
 } from "../services/password-hashing.js";
-import { createSession, deleteSession } from "../services/sessions.js";
+import { createSession, deleteSession, SESSION_TTL } from "../services/sessions.js";
 const CUSTOMER_ROLE_ID = Number(process.env.CUSTOMER_ID);
 
 const register = test(async (req, res) => {
@@ -18,7 +18,7 @@ const register = test(async (req, res) => {
     req.body;
 
   const cleanUsername = username.trim();
-  const cleanEmail = email.trim();
+  const cleanEmail = email.trim().toLowerCase();
   const cleanCustomerName = customer_name.trim();
   const cleanShippingAddress = shipping_address.trim();
 
@@ -89,9 +89,9 @@ const register = test(async (req, res) => {
       [account.rows[0].account_id, hashedToken, expiresAt],
     );
 
-    await transaction.query("COMMIT");
-
     await sendVerificationEmail(cleanEmail, rawToken);
+
+    await transaction.query("COMMIT");
 
     return res.status(201).json({
       message: "Account created successfully",
@@ -176,7 +176,7 @@ const login = test(async (req, res) => {
     `SELECT *
      FROM accounts
      WHERE email = $1`,
-    [email.trim()],
+    [email.trim().toLowerCase()],
   );
 
   if (account.rows.length < 1) {
@@ -208,7 +208,7 @@ const login = test(async (req, res) => {
       httpOnly: true,
       secure: process.env.COOKIE_SECURE === "true",
       sameSite: "lax",
-      maxAge: 24 * 60 * 60 * 1000,
+      maxAge: SESSION_TTL * 1000,
     })
     .status(200)
     .json({
@@ -238,9 +238,85 @@ const logout = test(async (req, res) => {
   });
 });
 
+const bootstrap = test(async (req, res) => {
+  const { username, email, password } = req.body;
+
+  const existingOwner = await pg.query(
+    `SELECT 1
+     FROM account_roles ar
+     JOIN roles r ON r.role_id = ar.role_id
+     WHERE LOWER(r.name) = 'owner'`,
+  );
+
+  if (existingOwner.rows.length > 0) {
+    return res.status(403).json({
+      message: "Administrator already exists",
+    });
+  }
+
+  const cleanUsername = username.trim();
+  const cleanEmail = email.trim().toLowerCase();
+
+  const existingAccount = await pg.query(
+    `SELECT account_id FROM accounts WHERE username = $1 OR email = $2`,
+    [cleanUsername, cleanEmail],
+  );
+
+  if (existingAccount.rows.length > 0) {
+    return res.status(409).json({
+      message: "Username or email already exists",
+    });
+  }
+
+  const ownerRoleRes = await pg.query(
+    `SELECT role_id FROM roles WHERE LOWER(name) = 'owner' LIMIT 1`,
+  );
+  const ownerRoleId =
+    ownerRoleRes.rows[0]?.role_id || Number(process.env.OWNER_ID) || 1;
+
+  const passwordHash = await hashPassword(password);
+
+  const transaction = await pg.connect();
+  try {
+    await transaction.query("BEGIN");
+
+    const account = await transaction.query(
+      `
+      INSERT INTO accounts
+        (username, email, password_hash, status, created_at, updated_at)
+      VALUES
+        ($1, $2, $3, 'active', now(), now())
+      RETURNING account_id, username, email, status
+      `,
+      [cleanUsername, cleanEmail, passwordHash],
+    );
+
+    await transaction.query(
+      `
+      INSERT INTO account_roles (account_id, role_id)
+      VALUES ($1, $2)
+      `,
+      [account.rows[0].account_id, ownerRoleId],
+    );
+
+    await transaction.query("COMMIT");
+
+    return res.status(201).json({
+      message: "Administrator account created successfully",
+      account: account.rows[0],
+    });
+  } catch (error) {
+    await transaction.query("ROLLBACK");
+    throw error;
+  } finally {
+    transaction.release();
+  }
+});
+
 export {
   register,
   verifyAccount,
   login,
   logout,
+  bootstrap,
 };

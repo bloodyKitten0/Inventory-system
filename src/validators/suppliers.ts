@@ -3,13 +3,13 @@ import { positiveInteger, requiredString, email } from "./common.js";
 const create = {
   body: {
     supplier_name: {
-      ...requiredString(2),
+      ...requiredString(2, 255),
     },
 
     supplier_email: email,
 
     supplier_phone: {
-      ...requiredString(3),
+      ...requiredString(3, 50),
     },
   },
 };
@@ -21,13 +21,13 @@ const update = {
 
   body: {
     supplier_name: {
-      ...requiredString(2),
+      ...requiredString(2, 255),
     },
 
     supplier_email: email,
 
     supplier_phone: {
-      ...requiredString(3),
+      ...requiredString(3, 50),
     },
   },
 };

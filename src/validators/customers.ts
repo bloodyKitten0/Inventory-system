@@ -3,7 +3,7 @@ import { positiveInteger, requiredString, email } from "./common.js";
 const create = {
   body: {
     customer_name: {
-      ...requiredString(2),
+      ...requiredString(2, 255),
     },
 
     customer_email: email,
@@ -21,7 +21,7 @@ const update = {
 
   body: {
     customer_name: {
-      ...requiredString(2),
+      ...requiredString(2, 255),
     },
 
     customer_email: email,

@@ -44,36 +44,7 @@ router.use(authenticate);
  *       404:
  *         description: No order items found
  */
-router.get("/orders-items", requirePermission("order_item.read"), read);
-
-/**
- * @swagger
- * /orders-items/{id}:
- *   get:
- *     summary: Get one order item
- *     tags: [Order Items]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *           minimum: 1
- *         description: Order item ID
- *     responses:
- *       200:
- *         description: Order item found
- *       400:
- *         description: Invalid order item ID
- *       404:
- *         description: Order item not found
- */
-router.get(
-  "/orders-items/:id",
-  validate(idValidator),
-  requirePermission("order_item.read"),
-  readOne,
-);
+router.get("/", requirePermission("order_item.read"), read);
 
 /**
  * @swagger
@@ -113,10 +84,126 @@ router.get(
  *         description: Invalid order item data
  */
 router.post(
-  "/orders-items",
+  "/",
   validate(createValidator),
   requirePermission("order_item.create"),
   create,
+);
+
+/**
+ * @swagger
+ * /orders-items/order/{id}:
+ *   get:
+ *     summary: Get all items belonging to an order
+ *     tags: [Order Items]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Order ID
+ *     responses:
+ *       200:
+ *         description: Order items retrieved successfully
+ *       400:
+ *         description: Invalid order ID
+ *       404:
+ *         description: No items found for this order
+ */
+router.get(
+  "/order/:id",
+  validate(idValidator),
+  requirePermission("order_item.read"),
+  orderItems,
+);
+
+/**
+ * @swagger
+ * /orders-items/product/{id}:
+ *   get:
+ *     summary: Get all order items containing a product
+ *     tags: [Order Items]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Product ID
+ *     responses:
+ *       200:
+ *         description: Order items containing the product
+ *       400:
+ *         description: Invalid product ID
+ *       404:
+ *         description: No order items found for this product
+ */
+router.get(
+  "/product/:id",
+  validate(idValidator),
+  requirePermission("order_item.read"),
+  productOrderItems,
+);
+
+/**
+ * @swagger
+ * /orders-items/details/{id}:
+ *   get:
+ *     summary: Get an order item with its order and product details
+ *     tags: [Order Items]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Order item ID
+ *     responses:
+ *       200:
+ *         description: Order item with related order and product
+ *       400:
+ *         description: Invalid order item ID
+ *       404:
+ *         description: Order item not found
+ */
+router.get(
+  "/details/:id",
+  validate(idValidator),
+  requirePermission("order_item.read"),
+  orderItemDetails,
+);
+
+/**
+ * @swagger
+ * /orders-items/{id}:
+ *   get:
+ *     summary: Get one order item
+ *     tags: [Order Items]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Order item ID
+ *     responses:
+ *       200:
+ *         description: Order item found
+ *       400:
+ *         description: Invalid order item ID
+ *       404:
+ *         description: Order item not found
+ */
+router.get(
+  "/:id",
+  validate(idValidator),
+  requirePermission("order_item.read"),
+  readOne,
 );
 
 /**
@@ -159,7 +246,7 @@ router.post(
  *         description: Order item not found
  */
 router.put(
-  "/orders-items/:id",
+  "/:id",
   validate(updateValidator),
   requirePermission("order_item.update"),
   update,
@@ -188,97 +275,10 @@ router.put(
  *         description: Order item not found
  */
 router.delete(
-  "/orders-items/:id",
+  "/:id",
   validate(idValidator),
   requirePermission("order_item.delete"),
   remove,
-);
-
-/**
- * @swagger
- * /orders-items/order/{id}:
- *   get:
- *     summary: Get all items belonging to an order
- *     tags: [Order Items]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *           minimum: 1
- *         description: Order ID
- *     responses:
- *       200:
- *         description: Order items retrieved successfully
- *       400:
- *         description: Invalid order ID
- *       404:
- *         description: No items found for this order
- */
-router.get(
-  "/orders-items/order/:id",
-  validate(idValidator),
-  requirePermission("order_item.read"),
-  orderItems,
-);
-
-/**
- * @swagger
- * /orders-items/product/{id}:
- *   get:
- *     summary: Get all order items containing a product
- *     tags: [Order Items]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *           minimum: 1
- *         description: Product ID
- *     responses:
- *       200:
- *         description: Order items containing the product
- *       400:
- *         description: Invalid product ID
- *       404:
- *         description: No order items found for this product
- */
-router.get(
-  "/orders-items/product/:id",
-  validate(idValidator),
-  requirePermission("order_item.read"),
-  productOrderItems,
-);
-
-/**
- * @swagger
- * /orders-items/details/{id}:
- *   get:
- *     summary: Get an order item with its order and product details
- *     tags: [Order Items]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *           minimum: 1
- *         description: Order item ID
- *     responses:
- *       200:
- *         description: Order item with related order and product
- *       400:
- *         description: Invalid order item ID
- *       404:
- *         description: Order item not found
- */
-router.get(
-  "/orders-items/details/:id",
-  validate(idValidator),
-  requirePermission("order_item.read"),
-  orderItemDetails,
 );
 
 export default router;

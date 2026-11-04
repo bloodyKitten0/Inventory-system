@@ -1,7 +1,7 @@
 import express from "express";
 const router = express.Router();
 
-import { register, verifyAccount, login, logout } from "../security/auth.js";
+import { register, verifyAccount, login, logout, bootstrap } from "../security/auth.js";
 
 import validate from "../middlewares/validate.js";
 
@@ -127,5 +127,39 @@ router.post("/login", validate(loginValidator), login);
  *         description: User is not logged in
  */
 router.post("/logout", logout);
+
+/**
+ * @swagger
+ * /auth/bootstrap:
+ *   post:
+ *     summary: Bootstrap initial administrator account
+ *     tags:
+ *       - Authentication
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - email
+ *               - password
+ *             properties:
+ *               username:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Administrator account created successfully
+ *       403:
+ *         description: Administrator already exists
+ *       409:
+ *         description: Username or email already exists
+ */
+router.post("/bootstrap", bootstrap);
 
 export default router;

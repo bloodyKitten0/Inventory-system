@@ -33,13 +33,17 @@ const update = test(async (req, res) => {
     `
     UPDATE warehouses
     SET
-      name = $2,
-      location = $3,
+      name = COALESCE($2, name),
+      location = COALESCE($3, location),
       updated_at = now()
     WHERE id = $1
     RETURNING *
     `,
-    [req.params.id, name.trim(), location.trim()],
+    [
+      req.params.id,
+      name !== undefined ? name.trim() : null,
+      location !== undefined ? location.trim() : null,
+    ],
   );
 
   if (!checkRow(result)) {

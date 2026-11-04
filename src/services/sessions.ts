@@ -3,14 +3,29 @@ import { client } from "../config/redis.js";
 
 interface Session {
   userId: number;
+  customerId?: number | null;
 }
 
-const SESSION_TTL = Number(process.env.SESSION_TTL);
+const getSessionTtl = (): number => {
+  const rawTtl = Number(process.env.SESSION_TTL);
+  if (!Number.isInteger(rawTtl) || rawTtl <= 0) {
+    throw new Error("SESSION_TTL must be a positive integer");
+  }
+  return rawTtl;
+};
 
-const createSession = async (userId: number): Promise<string> => {
+const SESSION_TTL = getSessionTtl();
+
+const createSession = async (
+  userId: number,
+  customerId?: number | null,
+): Promise<string> => {
   const sessionId = randomBytes(32).toString("hex");
   const key = `session:${sessionId}`;
-  const data = { userId };
+  const data: Session = {
+    userId,
+    ...(customerId !== undefined ? { customerId } : {}),
+  };
   await client.set(key, JSON.stringify(data), { EX: SESSION_TTL });
   return sessionId;
 };
@@ -28,5 +43,5 @@ const deleteSession = async (sessionId: string): Promise<void> => {
   await client.del(key);
 };
 
-export { createSession, getSession, deleteSession };
+export { createSession, getSession, deleteSession, SESSION_TTL };
 export type { Session };

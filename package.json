@@ -41,5 +41,14 @@
   },
   "allowScripts": {
     "argon2@0.45.1": true
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bloodyKitten0/Inventory-system.git"
+  },
+  "types": "./dist/server.d.ts",
+  "bugs": {
+    "url": "https://github.com/bloodyKitten0/Inventory-system/issues"
+  },
+  "homepage": "https://github.com/bloodyKitten0/Inventory-system#readme"
 }

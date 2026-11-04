@@ -24,19 +24,53 @@ const create = test(async (req, res) => {
     [product_id, warehouse_id, quantity],
   );
 
-  res.status(201).json(result.rows[0]);
+  const created = result.rows[0];
+
+  if (quantity > 0) {
+    await pg.query(
+      `
+      INSERT INTO stock_movements
+        (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
+      VALUES
+        ($1, $2, 'RECEIPT', $3, now(), $4, 'Initial stock')
+      `,
+      [product_id, warehouse_id, quantity, created?.id],
+    );
+  }
+
+  res.status(201).json(created);
 });
 
 const update = test(async (req, res) => {
   const { product_id, warehouse_id, quantity } = req.body;
 
+  const existingResult = await pg.query(
+    `
+    SELECT *
+    FROM inventory
+    WHERE id = $1
+    `,
+    [req.params.id],
+  );
+
+  if (!checkRow(existingResult)) {
+    return res.status(404).json({
+      message: "Inventory not found",
+    });
+  }
+
+  const existing = existingResult.rows[0];
+  const newAmount = quantity !== undefined ? quantity : existing.amount;
+  const newProductId = product_id !== undefined ? product_id : existing.product_id;
+  const newWarehouseId = warehouse_id !== undefined ? warehouse_id : existing.warehouse_id;
+
   const result = await pg.query(
     `
     UPDATE inventory
     SET
-      product_id = $2,
-      warehouse_id = $3,
-      amount = $4,
+      product_id = COALESCE($2, product_id),
+      warehouse_id = COALESCE($3, warehouse_id),
+      amount = COALESCE($4, amount),
       last_update = now()
     WHERE id = $1
     RETURNING *
@@ -44,16 +78,62 @@ const update = test(async (req, res) => {
     [req.params.id, product_id, warehouse_id, quantity],
   );
 
-  if (!checkRow(result)) {
-    return res.status(404).json({
-      message: "Inventory not found",
-    });
+  const delta = newAmount - existing.amount;
+  if (delta !== 0) {
+    const movementType = delta > 0 ? "RECEIPT" : "SALE";
+    await pg.query(
+      `
+      INSERT INTO stock_movements
+        (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
+      VALUES
+        ($1, $2, $3, $4, now(), $5, 'Inventory quantity update')
+      `,
+      [newProductId, newWarehouseId, movementType, Math.abs(delta), req.params.id],
+    );
   }
 
   res.status(200).json(result.rows[0]);
 });
 
-const remove = deleteId("inventory", "inventory");
+const remove = test(async (req, res) => {
+  const existingResult = await pg.query(
+    `
+    SELECT *
+    FROM inventory
+    WHERE id = $1
+    `,
+    [req.params.id],
+  );
+
+  if (!checkRow(existingResult)) {
+    return res.status(404).json("inventory not found");
+  }
+
+  const existing = existingResult.rows[0];
+
+  if (existing.amount > 0) {
+    await pg.query(
+      `
+      INSERT INTO stock_movements
+        (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
+      VALUES
+        ($1, $2, 'ADJUSTMENT', $3, now(), $4, 'Inventory deletion write-off')
+      `,
+      [existing.product_id, existing.warehouse_id, existing.amount, req.params.id],
+    );
+  }
+
+  const result = await pg.query(
+    `
+    DELETE FROM inventory
+    WHERE id = $1
+    RETURNING *
+    `,
+    [req.params.id],
+  );
+
+  res.status(200).json(result.rows[0]);
+});
 
 const productInventory = two(
   "inventory",
@@ -125,20 +205,21 @@ const adjustStock = test(async (req, res) => {
       [change, req.params.id],
     );
 
-    const movement = change > 0 ? "RECEIPT" : "SALE";
+    const reason = change > 0 ? "Stock adjustment increase" : "Stock adjustment decrease";
 
     await transaction.query(
       `
       INSERT INTO stock_movements
-        (product_id, warehouse_id, movement_type, quantity, created_at)
+        (product_id, warehouse_id, movement_type, quantity, created_at, reference_id, reason)
       VALUES
-        ($1, $2, $3, $4, now())
+        ($1, $2, 'ADJUSTMENT', $3, now(), $4, $5)
       `,
       [
         inventory.product_id,
         inventory.warehouse_id,
-        movement,
         Math.abs(change),
+        inventory.id,
+        reason,
       ],
     );
 
@@ -169,12 +250,6 @@ const lowStock = test(async (req, res) => {
     [below],
   );
 
-  if (!checkRow(result)) {
-    return res.status(404).json({
-      message: "Nothing is below that limit",
-    });
-  }
-
   res.status(200).json(result.rows);
 });
 
@@ -189,12 +264,6 @@ const inventorySummary = test(async (req, res) => {
     ORDER BY product_id
     `,
   );
-
-  if (!checkRow(result)) {
-    return res.status(404).json({
-      message: "The inventory is empty",
-    });
-  }
 
   res.status(200).json(result.rows);
 });

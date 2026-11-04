@@ -9,7 +9,7 @@ const create = {
     product_id: positiveInteger,
     supplier_id: positiveInteger,
     supplier_price: nonNegativeNumber,
-    supplier_sku: requiredString(1),
+    supplier_sku: requiredString(1, 100),
   },
 };
 
@@ -22,7 +22,7 @@ const update = {
     product_id: positiveInteger,
     supplier_id: positiveInteger,
     supplier_price: nonNegativeNumber,
-    supplier_sku: requiredString(1),
+    supplier_sku: requiredString(1, 100),
   },
 };
 

@@ -217,3 +217,59 @@ test("update filters on the customer id column", async () => {
     db.query = originalQuery;
   }
 });
+
+test("update updates customer_name, trims and normalizes email", async () => {
+  const originalQuery = db.query;
+  let receivedParams: unknown[] = [];
+
+  db.query = async (query: string, values: unknown[]) => {
+    receivedParams = values;
+    return { rows: [{ id: 10, customer_name: "Alice", customer_email: "alice@example.com" }] };
+  };
+
+  const result = response();
+
+  try {
+    await controller.update(
+      {
+        params: { id: 10 },
+        body: {
+          customer_name: "  Alice  ",
+          customer_email: "  ALICE@EXAMPLE.COM  ",
+          shipping_address: "  Main St  ",
+        },
+      },
+      result.res,
+      () => {},
+    );
+
+    assert.equal(result.statusCode, 200);
+    assert.deepEqual(receivedParams, [10, "Alice", "alice@example.com", "Main St"]);
+  } finally {
+    db.query = originalQuery;
+  }
+});
+
+test("remove deletes an existing customer", async () => {
+  const originalQuery = db.query;
+  const deleted = { id: 10, customer_name: "Alice" };
+
+  db.query = async () => ({ rows: [deleted] });
+
+  const result = response();
+
+  try {
+    await controller.remove(
+      {
+        params: { id: 10 },
+      },
+      result.res,
+      () => {},
+    );
+
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.body, "Customer deleted");
+  } finally {
+    db.query = originalQuery;
+  }
+});

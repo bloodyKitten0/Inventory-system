@@ -582,6 +582,26 @@ test("revokePermission returns 404 when assignment does not exist", async () => 
   }
 });
 
+test("revokePermission refuses to revoke permissions from the owner role", async () => {
+  const result = response();
+
+  await controller.revokePermission(
+    {
+      params: {
+        id: process.env.OWNER_ID,
+        permissionId: 5,
+      },
+    },
+    result.res,
+    () => {},
+  );
+
+  assert.equal(result.statusCode, 403);
+  assert.deepEqual(result.body, {
+    message: "Permissions cannot be revoked from the owner role",
+  });
+});
+
 test("revokePermission removes an assignment", async () => {
   const originalQuery = db.query;
 

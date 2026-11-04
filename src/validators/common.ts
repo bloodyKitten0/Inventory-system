@@ -5,6 +5,13 @@ const positiveInteger = {
   min: 1,
 };
 
+const nonNegativeInteger = {
+  required: true,
+  type: "number",
+  integer: true,
+  min: 0,
+};
+
 const nonNegativeNumber = {
   required: true,
   type: "number",
@@ -35,6 +42,7 @@ const email = {
 
 export {
   positiveInteger,
+  nonNegativeInteger,
   nonNegativeNumber,
   positiveNumber,
   requiredString,

@@ -69,10 +69,10 @@ test("create inserts inventory and returns 201", async () => {
     amount: 50,
   };
 
-  let parameters: unknown;
+  const queryCalls: { query: string; values: unknown[] }[] = [];
 
   db.query = async (query: string, values: unknown[]) => {
-    parameters = values;
+    queryCalls.push({ query, values });
 
     return {
       rows: [inventory],
@@ -94,7 +94,7 @@ test("create inserts inventory and returns 201", async () => {
       () => {},
     );
 
-    assert.deepEqual(parameters, [10, 20, 50]);
+    assert.deepEqual(queryCalls[0]!.values, [10, 20, 50]);
     assert.equal(result.statusCode, 201);
     assert.deepEqual(result.body, inventory);
   } finally {
@@ -247,7 +247,13 @@ test("adjustStock increases stock and records a RECEIPT movement", async () => {
       q.query.includes("INSERT INTO stock_movements"),
     );
 
-    assert.deepEqual(movement.parameters, [10, 20, "RECEIPT", 20]);
+    assert.deepEqual(movement.parameters, [
+      10,
+      20,
+      20,
+      1,
+      "Stock adjustment increase",
+    ]);
 
     assert.equal(
       queries.some((q) => q.released === true),
@@ -317,7 +323,13 @@ test("adjustStock decreases stock and records a SALE movement", async () => {
       q.query.includes("INSERT INTO stock_movements"),
     );
 
-    assert.deepEqual(movement.parameters, [10, 20, "SALE", 20]);
+    assert.deepEqual(movement.parameters, [
+      10,
+      20,
+      20,
+      1,
+      "Stock adjustment decrease",
+    ]);
   } finally {
     db.connect = originalConnect;
   }
@@ -462,7 +474,7 @@ test("lowStock converts the below parameter to a number", async () => {
   }
 });
 
-test("lowStock returns 404 when no products are below the limit", async () => {
+test("lowStock returns empty array when no products are below the limit", async () => {
   const originalQuery = db.query;
 
   db.query = async () => ({
@@ -480,10 +492,8 @@ test("lowStock returns 404 when no products are below the limit", async () => {
       () => {},
     );
 
-    assert.equal(result.statusCode, 404);
-    assert.deepEqual(result.body, {
-      message: "Nothing is below that limit",
-    });
+    assert.equal(result.statusCode, 200);
+    assert.deepEqual(result.body, []);
   } finally {
     db.query = originalQuery;
   }
@@ -515,7 +525,7 @@ test("inventorySummary returns inventory totals", async () => {
   }
 });
 
-test("inventorySummary returns 404 when inventory is empty", async () => {
+test("inventorySummary returns empty array when inventory is empty", async () => {
   const originalQuery = db.query;
 
   db.query = async () => ({
@@ -527,10 +537,8 @@ test("inventorySummary returns 404 when inventory is empty", async () => {
   try {
     await controller.inventorySummary({}, result.res, () => {});
 
-    assert.equal(result.statusCode, 404);
-    assert.deepEqual(result.body, {
-      message: "The inventory is empty",
-    });
+    assert.equal(result.statusCode, 200);
+    assert.deepEqual(result.body, []);
   } finally {
     db.query = originalQuery;
   }
@@ -631,6 +639,122 @@ test("checkAvailability returns 404 when inventory does not exist", async () => 
     assert.deepEqual(result.body, {
       message: "Inventory not found",
     });
+  } finally {
+    db.query = originalQuery;
+  }
+});
+
+test("remove deletes inventory and records ADJUSTMENT movement when positive stock exists", async () => {
+  const originalQuery = db.query;
+  const queries: string[] = [];
+
+  const existingInventory = {
+    id: 1,
+    product_id: 10,
+    warehouse_id: 20,
+    amount: 15,
+  };
+
+  db.query = async (query: string) => {
+    queries.push(query);
+
+    if (query.includes("SELECT *") && query.includes("FROM inventory")) {
+      return { rows: [existingInventory] };
+    }
+
+    if (query.includes("DELETE FROM inventory")) {
+      return { rows: [existingInventory] };
+    }
+
+    return { rows: [] };
+  };
+
+  const result = response();
+
+  try {
+    await controller.remove(
+      {
+        params: { id: 1 },
+      },
+      result.res,
+      () => {},
+    );
+
+    assert.equal(result.statusCode, 200);
+    assert.deepEqual(result.body, existingInventory);
+    assert.equal(
+      queries.some((q) => q.includes("INSERT INTO stock_movements")),
+      true,
+    );
+  } finally {
+    db.query = originalQuery;
+  }
+});
+
+test("remove deletes inventory without movement when stock is zero", async () => {
+  const originalQuery = db.query;
+  const queries: string[] = [];
+
+  const existingInventory = {
+    id: 1,
+    product_id: 10,
+    warehouse_id: 20,
+    amount: 0,
+  };
+
+  db.query = async (query: string) => {
+    queries.push(query);
+
+    if (query.includes("SELECT *") && query.includes("FROM inventory")) {
+      return { rows: [existingInventory] };
+    }
+
+    if (query.includes("DELETE FROM inventory")) {
+      return { rows: [existingInventory] };
+    }
+
+    return { rows: [] };
+  };
+
+  const result = response();
+
+  try {
+    await controller.remove(
+      {
+        params: { id: 1 },
+      },
+      result.res,
+      () => {},
+    );
+
+    assert.equal(result.statusCode, 200);
+    assert.equal(
+      queries.some((q) => q.includes("INSERT INTO stock_movements")),
+      false,
+    );
+  } finally {
+    db.query = originalQuery;
+  }
+});
+
+test("remove returns 404 when inventory does not exist", async () => {
+  const originalQuery = db.query;
+
+  db.query = async () => ({ rows: [] });
+
+  const result = response();
+
+  try {
+    await controller.remove(
+      {
+        params: { id: 999 },
+      },
+      result.res,
+      () => {},
+    );
+
+    assert.equal(result.statusCode, 404);
+    assert.equal(result.body, "inventory not found");
   } finally {
     db.query = originalQuery;
   }
