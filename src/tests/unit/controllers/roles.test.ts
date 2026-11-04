@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+process.env.OWNER_ID = process.env.OWNER_ID || "9";
+
 import pg from "../../../config/db.js";
 import * as controllerModule from "../../../controllers/roles.js";
 

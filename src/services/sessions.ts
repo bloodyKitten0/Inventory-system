@@ -7,6 +7,9 @@ interface Session {
 }
 
 const getSessionTtl = (): number => {
+  if (!process.env.SESSION_TTL) {
+    process.env.SESSION_TTL = "86400";
+  }
   const rawTtl = Number(process.env.SESSION_TTL);
   if (!Number.isInteger(rawTtl) || rawTtl <= 0) {
     throw new Error("SESSION_TTL must be a positive integer");
